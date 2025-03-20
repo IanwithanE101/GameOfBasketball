@@ -152,14 +152,15 @@ class MainMenu(tk.Tk):
 
     def select_game(self, index):
         """
-        Called when the user selects a game. Updates the UI with detailed game stats.
+        Called when the user selects a game.
+        Fetches new data (including game_id) and updates the UI.
         """
         # Reset the previously selected game button
         if self.selected_game_index is not None:
             old_btn, old_is_past, _ = self.game_buttons[self.selected_game_index]
             old_btn.configure(style='Past.TButton' if old_is_past else 'Default.TButton')
 
-        # Set the new game as selected
+        # Mark the new game as selected
         btn, is_past, game_data = self.game_buttons[index]
         btn.configure(style='Selected.TButton')
         self.selected_game_index = index
@@ -167,18 +168,43 @@ class MainMenu(tk.Tk):
         # Fetch game details from TestData
         details = self.test_data.get_game_details(game_data)
 
-        # Update the UI
+        # 1) Store the game_id for other menus
+        self.selected_game_id = details["game_id"]
+
+        # 2) Update the UI with the scoreboard & players
         self.update_game_details_ui(game_data, details)
 
-    def display_player_stats(self, parent, player, role="Starter"):
+    def display_player_stats(self, parent, player, is_starter=False):
         """
-        Displays an individual player's stats in the correct format.
+        Shows:  Pos  |  #  | Last Name    | Pts | Ast | Reb | FG%
+        - Uses only the player's last name
+        - Truncates last names to 10 characters + "…"
+        - Ensures monospaced columns line up properly
+        - FG% displayed as a whole number with '%'
         """
+        font_used = ("Consolas", 12, "bold") if is_starter else ("Consolas", 10)
+
+        # Extract last name
+        last_name = player["name"].split()[-1]  # Last word in name is assumed as last name
+        if len(last_name) > 10:  # Truncate if longer than 10
+            last_name = last_name[:9] + "…"  # Show first 9 characters + "…"
+
+        pos = player.get("position", "???")
+        fg_decimal = player.get("fg_pct", 0.0)
+        fg_str = f"{int(fg_decimal * 100):}%"  # Convert decimal to percentage (e.g. 46%)
+
+        # Ensure column alignment
         info = (
-            f"{role[:1]} #{player['number']:>2} {player['name']:<12} "
-            f"Pts: {player['points']} | Ast: {player['assists']} | Reb: {player['rebounds']}"
+            f"{pos:<2} |"  # pos, left-just 2
+            f"{player['number']:>2}|"  # #, right-just 2
+            f"{last_name:<10}|"  # last name, left-just 10 max
+            f"{player['points']:>2} |"  # points, right-just 2
+            f"{player['assists']:>2} |"  # assists, right-just 2
+            f"{player['rebounds']:>2} |"  # rebounds, right-just 2
+            f"{fg_str:>3}"  # FG%, right-just 3
         )
-        ttk.Label(parent, text=info, font=("Helvetica", 10)).pack(anchor="w", padx=5, pady=2)
+
+        ttk.Label(parent, text=info, font=font_used).pack(anchor="w", padx=5)
 
     def _adjust_schedule_layout(self, event=None):
         total_w = self.schedule_frame.winfo_width()
@@ -231,12 +257,15 @@ class MainMenu(tk.Tk):
     def update_game_details_ui(self, game_data, details):
         """
         Updates the game details panel with a clear, structured layout.
+        Shows a scoreboard, then splits Home & Away teams.
+        Starters get a larger/bold column header, and bench gets a normal header.
         """
-        # Clear the previous details
+
+        # 1) Clear the old details
         for widget in self.details_container.winfo_children():
             widget.destroy()
 
-        # Header with score
+        # 2) Scoreboard label
         score_label = ttk.Label(
             self.details_container,
             text=f"{game_data['home']} ({details['home_score']}) vs {game_data['away']} ({details['away_score']})",
@@ -244,45 +273,57 @@ class MainMenu(tk.Tk):
         )
         score_label.pack(anchor="center", pady=10)
 
-        # Create a frame to hold both teams' stats
+        # 3) Container for Home & Away side-by-side
         teams_frame = ttk.Frame(self.details_container)
         teams_frame.pack(expand=True, pady=10)
 
-        # Create frames for Home & Away teams
+        # --- Home Frame ---
         home_frame = ttk.Frame(teams_frame)
         home_frame.grid(row=0, column=0, padx=30, sticky="n")
 
+        ttk.Label(home_frame, text=f"{game_data['home']} (Home)", font=("Helvetica", 12, "bold")).pack()
+
+        # Starters
+        ttk.Label(home_frame, text="Starters:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
+        self.display_column_headers(home_frame, is_starter=True)  # Bold/larger header
+        for p in details["home_players"][:5]:
+            self.display_player_stats(home_frame, p, is_starter=True)
+
+        # Bench
+        ttk.Label(home_frame, text="Bench:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
+        self.display_column_headers(home_frame, is_starter=False)  # Normal header
+        for p in details["home_players"][5:]:
+            self.display_player_stats(home_frame, p, is_starter=False)
+
+        # --- Away Frame ---
         away_frame = ttk.Frame(teams_frame)
         away_frame.grid(row=0, column=1, padx=30, sticky="n")
 
-        # Home team header
-        ttk.Label(home_frame, text=f"{game_data['home']} (Home)", font=("Helvetica", 12, "bold")).pack()
-        ttk.Label(home_frame, text="Starters:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-
-        # Home Starters
-        for p in details["home_players"][:5]:
-            self.display_player_stats(home_frame, p, role="Starter")
-
-        ttk.Label(home_frame, text="Bench:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-
-        # Home Bench
-        for p in details["home_players"][5:]:
-            self.display_player_stats(home_frame, p, role="Bench")
-
-        # Away team header
         ttk.Label(away_frame, text=f"{game_data['away']} (Away)", font=("Helvetica", 12, "bold")).pack()
+
+        # Starters
         ttk.Label(away_frame, text="Starters:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-
-        # Away Starters
+        self.display_column_headers(away_frame, is_starter=True)
         for p in details["away_players"][:5]:
-            self.display_player_stats(away_frame, p, role="Starter")
+            self.display_player_stats(away_frame, p, is_starter=True)
 
+        # Bench
         ttk.Label(away_frame, text="Bench:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-
-        # Away Bench
+        self.display_column_headers(away_frame, is_starter=False)
         for p in details["away_players"][5:]:
-            self.display_player_stats(away_frame, p, role="Bench")
+            self.display_player_stats(away_frame, p, is_starter=False)
 
+    def display_column_headers(self, parent, is_starter=False):
+        """
+        Renders:  Pos  |  #  | Name         | Pts | Ast | Reb | FG%
+        Uses a bigger/bold monospaced font if is_starter=True,
+        otherwise a smaller monospaced font.
+        """
+        # Monospaced font ensures columns line up
+        font_used = ("Consolas", 12, "bold") if is_starter else ("Consolas", 10)
+        # Must match the spacing in display_player_stats
+        headers = "Pos|# | Name     |Pts|Ast|Reb|FG%"
+        ttk.Label(parent, text=headers, font=font_used).pack(anchor="w", padx=5)
 
 
 if __name__ == '__main__':

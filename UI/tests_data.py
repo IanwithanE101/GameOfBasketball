@@ -1,4 +1,5 @@
-from datetime import timedelta
+import random
+from datetime import timedelta, date
 
 
 class TestData:
@@ -25,34 +26,80 @@ class TestData:
             current_date += timedelta(days=1)
         return schedule
 
+    import random
+    from datetime import date
+
     def get_game_details(self, game_data):
         print("WARNING: Using FAKE GAME DETAILS data! (TestData.get_game_details called)")
-        # Example of a more complex return structure: scoreboard & rosters
-        # In reality, you'd generate or fetch real data.
-        # We'll just mock them for demonstration.
+
+        # 1) Save the current random state
+        old_state = random.getstate()
+
+        # 2) Seed the random generator from the date, ensuring reproducibility
+        #    Using date.toordinal() is a clean way to get an integer from a date
+        game_seed = game_data['date'].toordinal()
+        random.seed(game_seed)
+
+        today = date.today()
+        game_is_future = game_data['date'] >= today
+
+        # Example game_id based on the date's ordinal as well
+        # (so it remains stable for that date)
+        game_id = game_seed
+
+        # Scores: 0 if future, else random in [80..120]
+        if game_is_future:
+            home_score = 0
+            away_score = 0
+        else:
+            home_score = random.randint(80, 120)
+            away_score = random.randint(80, 120)
+
+        def generate_player_stats(name, forced_position=None):
+            positions = ["PG", "SG", "SF", "PF", "C"]
+            return {
+                "name": name,
+                "number": random.randint(1, 99),
+                "points": random.randint(0, 35),
+                "assists": random.randint(0, 10),
+                "rebounds": random.randint(0, 15),
+                "position": forced_position if forced_position else random.choice(positions),
+                "fg_pct": round(random.uniform(0.30, 0.60), 2)
+            }
+
+        # Home team: 5 starters + bench
+        home_starters = [
+            generate_player_stats("HomeStarter1", "PG"),
+            generate_player_stats("HomeStarter2", "SG"),
+            generate_player_stats("HomeStarter3", "SF"),
+            generate_player_stats("HomeStarter4", "PF"),
+            generate_player_stats("HomeStarter5", "C"),
+        ]
+        home_bench = [
+            generate_player_stats("HomeBench1"),
+            generate_player_stats("HomeBench2"),
+        ]
+
+        # Away team: 5 starters + bench
+        away_starters = [
+            generate_player_stats("AwayStarter1", "PG"),
+            generate_player_stats("AwayStarter2", "SG"),
+            generate_player_stats("AwayStarter3", "SF"),
+            generate_player_stats("AwayStarter4", "PF"),
+            generate_player_stats("AwayStarter5", "C"),
+        ]
+        away_bench = [
+            generate_player_stats("AwayBench1"),
+            generate_player_stats("AwayBench2"),
+        ]
+
+        # 3) Restore the old random state so other random calls in your app aren’t affected
+        random.setstate(old_state)
+
         return {
-            "home_score": 102,
-            "away_score": 98,
-            "home_players": [
-                # first 5 are 'starters'
-                {"name": "John Doe", "number": 11, "points": 28, "assists": 5, "rebounds": 7},
-                {"name": "Player2", "number": 5, "points": 16, "assists": 2, "rebounds": 4},
-                {"name": "Player3", "number": 7, "points": 10, "assists": 5, "rebounds": 2},
-                {"name": "Player4", "number": 12, "points": 8,  "assists": 2, "rebounds": 9},
-                {"name": "Player5", "number": 20, "points": 14, "assists": 1, "rebounds": 3},
-                # bench
-                {"name": "Bench1",  "number": 15, "points": 5, "assists": 0, "rebounds": 2},
-                {"name": "Bench2",  "number": 23, "points": 2, "assists": 1, "rebounds": 1},
-            ],
-            "away_players": [
-                # first 5 are 'starters'
-                {"name": "Alice Jones", "number": 22, "points": 21, "assists": 7, "rebounds": 5},
-                {"name": "Away2", "number": 10, "points": 12, "assists": 3, "rebounds": 6},
-                {"name": "Away3", "number": 45, "points": 20, "assists": 4, "rebounds": 8},
-                {"name": "Away4", "number": 9,  "points": 10, "assists": 8, "rebounds": 0},
-                {"name": "Away5", "number": 14, "points": 5,  "assists": 2, "rebounds": 3},
-                # bench
-                {"name": "AwayBench1", "number": 19, "points": 1, "assists": 1, "rebounds": 2},
-                {"name": "AwayBench2", "number": 30, "points": 0, "assists": 0, "rebounds": 1},
-            ],
+            "game_id": game_id,
+            "home_score": home_score,
+            "away_score": away_score,
+            "home_players": home_starters + home_bench,
+            "away_players": away_starters + away_bench,
         }
