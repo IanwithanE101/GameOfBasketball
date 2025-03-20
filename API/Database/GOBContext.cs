@@ -3,9 +3,9 @@
     using Microsoft.EntityFrameworkCore;
     using WebApplication1.Models;
 
-    public class MyDbContext : DbContext
+    public class GOBContext : DbContext
     {
-        public MyDbContext(DbContextOptions<MyDbContext> options) : base(options) { }
+        public GOBContext(DbContextOptions<GOBContext> options) : base(options) { }
 
         public DbSet<Game> Games { get; set; }
         public DbSet<Player> Players { get; set; }
