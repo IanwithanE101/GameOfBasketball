@@ -2,9 +2,11 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.ComponentModel.DataAnnotations;
 
     public class Player
     {
+        [Key]
         public int Player_ID { get; set; }
         public int? Team_ID { get; set; } // Nullable because it can be null
         public string First_Name { get; set; }

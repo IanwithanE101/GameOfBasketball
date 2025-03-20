@@ -2,9 +2,11 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.ComponentModel.DataAnnotations;
 
     public class Stat
     {
+        [Key]
         public int Stat_ID { get; set; }
         public int Player_ID { get; set; }
         public int Game_ID { get; set; }

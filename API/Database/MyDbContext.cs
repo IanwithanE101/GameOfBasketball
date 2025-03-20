@@ -14,6 +14,8 @@
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<Team>().ToTable("Team"); // Explicitly set the table name
+
             modelBuilder.Entity<Game>()
                 .HasOne(g => g.HomeTeam)
                 .WithMany(t => t.HomeGames)
@@ -38,7 +40,6 @@
                 .HasOne(s => s.Game)
                 .WithMany(g => g.Stats)
                 .HasForeignKey(s => s.Game_ID);
-
         }
     }
 }
