@@ -9,9 +9,9 @@ using WebApplication1.DTOs;
 [Route("[controller]")]
 public class TeamsController : ControllerBase
 {
-    private readonly MyDbContext _context;
+    private readonly GOBContext _context;
 
-    public TeamsController(MyDbContext context)
+    public TeamsController(GOBContext context)
     {
         _context = context;
     }
