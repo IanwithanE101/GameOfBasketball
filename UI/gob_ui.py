@@ -1,331 +1,288 @@
 import tkinter as tk
-import os
-from tkinter import ttk
-from PIL import Image, ImageTk
+from tkinter import ttk, font
 from datetime import date, timedelta
-from config import UI_ELEMENTS
-from tests_data import TestData
 
-
-class MainMenu(tk.Tk):
+class BasketballManager(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Basketball Manager")
-        self.geometry("1100x600")
-
-        self.set_window_icon()
-
-        # Configure styles
+        self.geometry("1000x600")
+        
+        # Load Europe Underground Regular font
+        self.load_custom_font()
+        
+        # colors for different game states
+        self.colors = {
+            'future': "#d0e8ff",  # light blue for games that haven't happened yet
+            'won': "#c2ffc2",     # light green for games won
+            'lost': "#ffcece",    # light red for games lost
+            'selected': "#7aceff", # darker blue for the game you clicked on
+        }
+        
+        # set up the visual styles
+        self.configure_styles()
+        
+        # create the main tab system
+        self.tab_control = ttk.Notebook(self)
+        
+        # make the individual tabs
+        self.schedule_tab = ttk.Frame(self.tab_control)
+        self.game_tab = ttk.Frame(self.tab_control)
+        self.teams_tab = ttk.Frame(self.tab_control)
+        self.players_tab = ttk.Frame(self.tab_control)
+        
+        # add the tabs to the main window
+        self.tab_control.add(self.schedule_tab, text='Schedule')
+        self.tab_control.add(self.game_tab, text='Game')
+        self.tab_control.add(self.teams_tab, text='Teams')
+        self.tab_control.add(self.players_tab, text='Players')
+        
+        self.tab_control.pack(expand=1, fill="both")
+        
+        # create the schedule view with game list and details
+        self.setup_schedule_tab()
+    
+    def load_custom_font(self):
+        """Load the Europe Underground Regular font from file"""
+        try:
+            # Specify the path to your font file
+            font_path = "/fonts/europeunderground_black.ttf"  # Update this with your actual font filename
+            
+            # Register the font with Tkinter
+            font_id = font.Font(font=font_path, family="Europe Underground Regular")
+            
+            # Set font name and sizes
+            self.custom_font_name = "Europe Underground Regular"
+            self.font_size_normal = 10
+            self.font_size_title = 16
+            self.font_size_subtitle = 14
+            
+            # Use the registered font
+            self.custom_font = self.custom_font_name
+            
+            print(f"Successfully loaded '{self.custom_font_name}' font.")
+        except Exception as e:
+            print(f"Error loading custom font: {e}")
+            print("Falling back to default font (Arial)")
+            self.custom_font = "Arial"
+            self.custom_font_name = "Arial"
+            self.font_size_normal = 10
+            self.font_size_title = 16
+            self.font_size_subtitle = 14
+    
+    def configure_styles(self):
+        """set up all the colors and fonts for the app"""
         style = ttk.Style(self)
         style.theme_use("clam")
-
-        # Default button style
-        style.configure('Default.TButton', background='#DDDDDD', foreground='black')
-
-        # Past game style
-        style.configure('Past.TButton', background='#AAAAAA', foreground='black')
-        style.map('Past.TButton', background=[('active', '#999999')])
-
-        # Selected game style
-        style.configure('Selected.TButton', background='lightblue', foreground='black')
-        style.map('Selected.TButton', background=[('active', '#87CEFA')])
-
-        # Notebook tabs
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(expand=True, fill='both')
-
-        # ===================== Schedule Tab =====================
-        self.schedule_tab = ttk.Frame(self.notebook)
-        self.notebook.add(self.schedule_tab, text='Schedule')
-
-        # Main layout (25% schedule, 75% details)
-        self.schedule_frame = ttk.Frame(self.schedule_tab)
-        self.schedule_frame.pack(fill="both", expand=True)
-
-        # ---------- LEFT 25%: Scrollable Schedule ----------
-        self.schedule_list_frame = ttk.Frame(self.schedule_frame)
-        self.schedule_list_frame.pack(side="left", fill="both")
-
-        self.schedule_canvas = tk.Canvas(self.schedule_list_frame, bg="white")
-        self.schedule_scrollbar = ttk.Scrollbar(
-            self.schedule_list_frame, orient="vertical", command=self.schedule_canvas.yview
+        
+        # Define fonts to use throughout the application
+        self.normal_font = (self.custom_font, self.font_size_normal)
+        self.title_font = (self.custom_font, self.font_size_title)
+        self.subtitle_font = (self.custom_font, self.font_size_subtitle)
+        
+        # styles for different game outcomes
+        style.configure('Won.TFrame', background=self.colors['won'])
+        style.configure('Lost.TFrame', background=self.colors['lost'])
+        style.configure('Future.TFrame', background=self.colors['future'])
+        
+        # matching text styles for each type of game
+        style.configure('Won.TLabel', 
+                        font=self.normal_font, 
+                        background=self.colors['won'])
+        
+        style.configure('Lost.TLabel', 
+                        font=self.normal_font, 
+                        background=self.colors['lost'])
+        
+        style.configure('Future.TLabel', 
+                        font=self.normal_font, 
+                        background=self.colors['future'])
+        
+        # Configure notebook (tab) font
+        style.configure('TNotebook.Tab', font=self.normal_font)
+    
+    def setup_schedule_tab(self):
+        """create the two-panel view for the schedule tab"""
+        # split the tab into two parts: game list (25% width) and game details (75% width)
+        paned_window = ttk.PanedWindow(self.schedule_tab, orient=tk.HORIZONTAL)
+        paned_window.pack(fill=tk.BOTH, expand=True)
+        
+        # left side - game list
+        self.schedule_frame = ttk.Frame(paned_window)
+        
+        # right side - game details
+        self.details_frame = ttk.Frame(paned_window)
+        
+        # add both panels to the window with proper sizes
+        paned_window.add(self.schedule_frame, weight=25)
+        paned_window.add(self.details_frame, weight=75)
+        
+        # create the scrollable game list
+        self.setup_schedule_list()
+        
+        # set up the right panel that shows game info
+        self.setup_details_area()
+    
+    def setup_details_area(self):
+        """create the area that shows game details when you click a game"""
+        # center everything in the details panel
+        details_container = tk.Frame(self.details_frame)
+        style = ttk.Style()
+        bg_color = style.lookup('TFrame', 'background')
+        details_container.configure(bg=bg_color)
+        details_container.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # game title at the top
+        self.game_title_label = tk.Label(
+            details_container,
+            text="Game Details: 2025-03-14",
+            font=self.title_font,
+            bg=details_container.cget("background")
         )
-
-        # I used a normal tk.Frame so bg="white" can be set
-        self.scrollable_schedule_frame = tk.Frame(self.schedule_canvas, bg="white")
-
-        self.scrollable_schedule_frame.bind(
-            "<Configure>",
-            lambda e: self.schedule_canvas.configure(
-                scrollregion=self.schedule_canvas.bbox("all")
+        self.game_title_label.pack(pady=(0, 10))
+        
+        # game status beneath the title
+        self.game_status_label = tk.Label(
+            details_container,
+            text="Status: Lost",
+            font=self.subtitle_font,
+            bg=details_container.cget("background")
+        )
+        self.game_status_label.pack()
+    
+    def setup_schedule_list(self):
+        """create the scrollable list of games with win/loss colors"""
+        # container to hold everything
+        container_frame = tk.Frame(self.schedule_frame)
+        container_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # canvas for smooth scrolling
+        self.schedule_canvas = tk.Canvas(
+            container_frame, 
+            bg="#f5f5f5", 
+            highlightthickness=0
+        )
+        
+        # scrollbar on the right side
+        self.scrollbar = ttk.Scrollbar(
+            container_frame, 
+            orient=tk.VERTICAL, 
+            command=self.schedule_canvas.yview
+        )
+        
+        # link the scrollbar to the canvas
+        self.schedule_canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        # make sure the canvas shows all content when scrolling
+        self.schedule_canvas.bind('<Configure>', 
+                                 lambda e: self.schedule_canvas.configure(
+                                     scrollregion=self.schedule_canvas.bbox("all")
+                                 ))
+        
+        # position everything
+        self.schedule_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # let users scroll with the mouse wheel
+        self.schedule_canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        
+        # frame inside the canvas that holds the actual game entries
+        self.scrollable_frame = tk.Frame(self.schedule_canvas, bg="#f5f5f5")
+        
+        # put the frame in the canvas and make it fill the width
+        self.canvas_window = self.schedule_canvas.create_window(
+            (0, 0), 
+            window=self.scrollable_frame, 
+            anchor="nw",
+            width=self.schedule_canvas.winfo_width()
+        )
+        
+        # make sure the frame stays full width when window resizes
+        self.schedule_canvas.bind("<Configure>", self._on_canvas_resize)
+        
+        # fill the list with games
+        self.populate_schedule()
+    
+    def _on_canvas_resize(self, event):
+        """make the scrollable content fit the width when window size changes"""
+        # update the frame to match the canvas width
+        self.schedule_canvas.itemconfig(self.canvas_window, width=event.width)
+    
+    def populate_schedule(self):
+        """create all the game entries with proper colors based on win/loss/future"""
+        # start with games from March 1, 2025
+        start_date = date(2025, 3, 1)
+        current_date = date(2025, 3, 20)  # today's date in the app
+        
+        # pre-set which games were wins and losses (just for demo purposes)
+        win_loss_pattern = {
+            1: 'lost', 2: 'lost', 3: 'won', 4: 'won', 5: 'won',
+            6: 'won', 7: 'lost', 8: 'won', 9: 'won', 10: 'won',
+            11: 'lost', 12: 'won', 13: 'lost', 14: 'won'
+        }
+        
+        # create 40 days worth of games
+        for i in range(40):
+            game_date = start_date + timedelta(days=i)
+            day_str = game_date.strftime("%Y-%m-%d")
+            
+            # make the team names
+            if game_date.month == 3:
+                team_num = game_date.day + 15
+                game_text = f"{day_str} | Team{team_num} vs Team{team_num+1} @ Arena {team_num}"
+            else:
+                team_num = game_date.day
+                game_text = f"{day_str} | Team{team_num} vs Team{team_num+1} @ Arena {team_num}"
+            
+            # figure out if this game is in the future, won, or lost
+            if game_date > current_date:
+                game_status = 'future'
+                bg_color = self.colors['future']
+            else:
+                # for past games, check if it was a win or loss
+                if game_date.day in win_loss_pattern:
+                    game_status = win_loss_pattern[game_date.day]
+                    bg_color = self.colors['won'] if game_status == 'won' else self.colors['lost']
+                else:
+                    game_status = 'lost'
+                    bg_color = self.colors['lost']
+            
+            # create the row for this game
+            game_frame = tk.Frame(
+                self.scrollable_frame,
+                bg=bg_color,
+                height=30
             )
-        )
-
-        self.schedule_canvas.create_window((0, 0), window=self.scrollable_schedule_frame, anchor="nw")
-        self.schedule_canvas.configure(yscrollcommand=self.schedule_scrollbar.set)
-
-        self.schedule_canvas.pack(side="left", fill="both", expand=True)
-        self.schedule_scrollbar.pack(side="right", fill="y")
-
-        # ---------- RIGHT 75%: Game Details UI ----------
-        self.details_box = ttk.Frame(self.schedule_frame, relief="sunken", borderwidth=2)
-        self.details_box.pack(side="left", fill="both", expand=True)
-
-        # Container inside details box (centering contents)
-        self.details_container = ttk.Frame(self.details_box)
-        self.details_container.pack(expand=True)
-
-        # Placeholder label before selection
-        self.details_placeholder = ttk.Label(
-            self.details_container,
-            text="Click a game to view details",
-            font=("Helvetica", 14, "italic")
-        )
-        self.details_placeholder.pack(anchor="center", expand=True)
-
-        # Instantiate our fake data class
-        self.test_data = TestData()
-
-        self.selected_game_index = None
-        self.game_buttons = []  # Store (button_widget, is_past, game_data)
-
-        self.build_schedule_contents()
-
-        self.bind("<Configure>", self._adjust_schedule_layout)
-
-        # Additional tabs
-        game_tab = ttk.Frame(self.notebook)
-        self.notebook.add(game_tab, text='Game')
-        ttk.Label(game_tab, text="No Game loaded.").pack(padx=10, pady=10)
-
-        teams_tab = ttk.Frame(self.notebook)
-        self.notebook.add(teams_tab, text='Teams')
-        ttk.Label(teams_tab, text="No Teams added.").pack(padx=10, pady=10)
-
-        players_tab = ttk.Frame(self.notebook)
-        self.notebook.add(players_tab, text='Players')
-        ttk.Label(players_tab, text="No Players listed.").pack(padx=10, pady=10)
-
-        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
-        self._enable_scroll_wheel()
-
-    # ======================================================
-    #             BUILD SCHEDULE CONTENTS
-    # ======================================================
-    def build_schedule_contents(self):
-        today = date.today()
-        start_date = today - timedelta(days=30)
-        end_date = today + timedelta(days=50)
-
-        games = self.test_data.get_schedule(start_date, end_date)
-
-        line_inserted = False
-        today_index = None
-
-        for idx, game_data in enumerate(games):
-            if today_index is None and game_data['date'] >= today:
-                today_index = idx
-
-            if not line_inserted and game_data['date'] >= today:
-                line_frame = tk.Frame(self.scrollable_schedule_frame, bg='green', height=4)
-                line_frame.pack(fill='x', pady=5)
-                line_inserted = True
-
-            day_str = game_data['date'].strftime("%Y-%m-%d")
-            btn_text = f"{day_str} | {game_data['home']} vs {game_data['away']} @ {game_data['location']}"
-
-            is_past = game_data['date'] < today
-            style_to_use = 'Past.TButton' if is_past else 'Default.TButton'
-
-            btn = ttk.Button(
-                self.scrollable_schedule_frame,
-                text=btn_text,
-                style=style_to_use,
-                command=lambda idx=idx: self.select_game(idx)
+            game_frame.pack(fill=tk.X, padx=0, pady=1)
+            
+            # add the game text
+            game_label = tk.Label(
+                game_frame,
+                text=game_text,
+                font=self.normal_font,
+                bg=bg_color,
+                anchor='w',
+                padx=5,
+                pady=5
             )
-            btn.pack(padx=10, pady=5, fill="x")
+            game_label.pack(fill=tk.X)
+            
+            # make both the row and text clickable
+            game_frame.bind("<Button-1>", lambda e, d=day_str, s=game_status: self.select_game(d, s))
+            game_label.bind("<Button-1>", lambda e, d=day_str, s=game_status: self.select_game(d, s))
+    
+    def select_game(self, date_str, status):
+        """update the details panel when a game is clicked"""
+        # update the details text
+        self.game_title_label.config(text=f"Game Details: {date_str}")
+        self.game_status_label.config(text=f"Status: {status.capitalize()}")
+    
+    def _on_mousewheel(self, event):
+        """handle mouse wheel scrolling of the game list"""
+        # scroll up or down based on wheel direction
+        scroll_amount = -1 * (event.delta // 120)
+        self.schedule_canvas.yview_scroll(scroll_amount, "units")
 
-            self.game_buttons.append((btn, is_past, game_data))
-
-        if today_index is not None:
-            self.after(100, lambda: self.scroll_near_today(today_index, offset=4))
-
-    def select_game(self, index):
-        """
-        Called when the user selects a game.
-        Fetches new data (including game_id) and updates the UI.
-        """
-        # Reset the previously selected game button
-        if self.selected_game_index is not None:
-            old_btn, old_is_past, _ = self.game_buttons[self.selected_game_index]
-            old_btn.configure(style='Past.TButton' if old_is_past else 'Default.TButton')
-
-        # Mark the new game as selected
-        btn, is_past, game_data = self.game_buttons[index]
-        btn.configure(style='Selected.TButton')
-        self.selected_game_index = index
-
-        # Fetch game details from TestData
-        details = self.test_data.get_game_details(game_data)
-
-        # 1) Store the game_id for other menus
-        self.selected_game_id = details["game_id"]
-
-        # 2) Update the UI with the scoreboard & players
-        self.update_game_details_ui(game_data, details)
-
-    def display_player_stats(self, parent, player, is_starter=False):
-        """
-        Shows:  Pos  |  #  | Last Name    | Pts | Ast | Reb | FG%
-        - Uses only the player's last name
-        - Truncates last names to 10 characters + "…"
-        - Ensures monospaced columns line up properly
-        - FG% displayed as a whole number with '%'
-        """
-        font_used = ("Consolas", 12, "bold") if is_starter else ("Consolas", 10)
-
-        # Extract last name
-        last_name = player["name"].split()[-1]  # Last word in name is assumed as last name
-        if len(last_name) > 10:  # Truncate if longer than 10
-            last_name = last_name[:9] + "…"  # Show first 9 characters + "…"
-
-        pos = player.get("position", "???")
-        fg_decimal = player.get("fg_pct", 0.0)
-        fg_str = f"{int(fg_decimal * 100):}%"  # Convert decimal to percentage (e.g. 46%)
-
-        # Ensure column alignment
-        info = (
-            f"{pos:<2} |"  # pos, left-just 2
-            f"{player['number']:>2}|"  # #, right-just 2
-            f"{last_name:<10}|"  # last name, left-just 10 max
-            f"{player['points']:>2} |"  # points, right-just 2
-            f"{player['assists']:>2} |"  # assists, right-just 2
-            f"{player['rebounds']:>2} |"  # rebounds, right-just 2
-            f"{fg_str:>3}"  # FG%, right-just 3
-        )
-
-        ttk.Label(parent, text=info, font=font_used).pack(anchor="w", padx=5)
-
-    def _adjust_schedule_layout(self, event=None):
-        total_w = self.schedule_frame.winfo_width()
-        if total_w > 0:
-            self.schedule_list_frame.config(width=int(total_w * 0.25))
-            self.details_box.config(width=int(total_w * 0.75))
-
-    def _enable_scroll_wheel(self):
-        self.schedule_canvas.bind("<Enter>", lambda e: self.schedule_canvas.focus_set())
-
-    def set_window_icon(self):
-        ico_path = os.path.join(UI_ELEMENTS, "icon.ico")
-        png_path = os.path.join(UI_ELEMENTS, "icon.png")
-        if os.path.exists(ico_path):
-            self.iconbitmap(ico_path)
-        elif os.path.exists(png_path):
-            img = Image.open(png_path).resize((32, 32), Image.Resampling.LANCZOS)
-            icon_img = ImageTk.PhotoImage(img)
-            self._icon_image = icon_img
-            self.iconphoto(False, icon_img)
-
-    def on_tab_changed(self, event):
-        """Ensures the mouse wheel only works on the schedule tab."""
-        tab_text = self.notebook.tab(self.notebook.select(), 'text')
-        if tab_text == 'Schedule':
-            self.bind_all("<MouseWheel>", self._on_mousewheel_global_win)
-        else:
-            self.unbind_all("<MouseWheel>")
-
-    def _on_mousewheel_global_win(self, event):
-        """Enable mouse wheel scrolling for the schedule canvas on Windows."""
-        self.schedule_canvas.yview_scroll(int(-event.delta / 120), "units")
-
-    def scroll_near_today(self, today_index, offset=4):
-        """
-        Scrolls the schedule so that 'today' is visible, with an offset of a few rows above.
-        """
-        if 0 <= today_index < len(self.game_buttons):
-            adjusted_index = max(0, today_index - offset)
-            self.scrollable_schedule_frame.update_idletasks()
-
-            target_widget, _, _ = self.game_buttons[adjusted_index]
-            y_coord = target_widget.winfo_y()
-            total_height = self.scrollable_schedule_frame.winfo_height()
-
-            fraction = y_coord / float(total_height)
-            fraction = max(0.0, min(fraction, 1.0))
-            self.schedule_canvas.yview_moveto(fraction)
-
-    def update_game_details_ui(self, game_data, details):
-        """
-        Updates the game details panel with a clear, structured layout.
-        Shows a scoreboard, then splits Home & Away teams.
-        Starters get a larger/bold column header, and bench gets a normal header.
-        """
-
-        # 1) Clear the old details
-        for widget in self.details_container.winfo_children():
-            widget.destroy()
-
-        # 2) Scoreboard label
-        score_label = ttk.Label(
-            self.details_container,
-            text=f"{game_data['home']} ({details['home_score']}) vs {game_data['away']} ({details['away_score']})",
-            font=("Helvetica", 16, "bold")
-        )
-        score_label.pack(anchor="center", pady=10)
-
-        # 3) Container for Home & Away side-by-side
-        teams_frame = ttk.Frame(self.details_container)
-        teams_frame.pack(expand=True, pady=10)
-
-        # --- Home Frame ---
-        home_frame = ttk.Frame(teams_frame)
-        home_frame.grid(row=0, column=0, padx=30, sticky="n")
-
-        ttk.Label(home_frame, text=f"{game_data['home']} (Home)", font=("Helvetica", 12, "bold")).pack()
-
-        # Starters
-        ttk.Label(home_frame, text="Starters:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-        self.display_column_headers(home_frame, is_starter=True)  # Bold/larger header
-        for p in details["home_players"][:5]:
-            self.display_player_stats(home_frame, p, is_starter=True)
-
-        # Bench
-        ttk.Label(home_frame, text="Bench:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-        self.display_column_headers(home_frame, is_starter=False)  # Normal header
-        for p in details["home_players"][5:]:
-            self.display_player_stats(home_frame, p, is_starter=False)
-
-        # --- Away Frame ---
-        away_frame = ttk.Frame(teams_frame)
-        away_frame.grid(row=0, column=1, padx=30, sticky="n")
-
-        ttk.Label(away_frame, text=f"{game_data['away']} (Away)", font=("Helvetica", 12, "bold")).pack()
-
-        # Starters
-        ttk.Label(away_frame, text="Starters:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-        self.display_column_headers(away_frame, is_starter=True)
-        for p in details["away_players"][:5]:
-            self.display_player_stats(away_frame, p, is_starter=True)
-
-        # Bench
-        ttk.Label(away_frame, text="Bench:", font=("Helvetica", 10, "underline")).pack(pady=(10, 0))
-        self.display_column_headers(away_frame, is_starter=False)
-        for p in details["away_players"][5:]:
-            self.display_player_stats(away_frame, p, is_starter=False)
-
-    def display_column_headers(self, parent, is_starter=False):
-        """
-        Renders:  Pos  |  #  | Name         | Pts | Ast | Reb | FG%
-        Uses a bigger/bold monospaced font if is_starter=True,
-        otherwise a smaller monospaced font.
-        """
-        # Monospaced font ensures columns line up
-        font_used = ("Consolas", 12, "bold") if is_starter else ("Consolas", 10)
-        # Must match the spacing in display_player_stats
-        headers = "Pos|# | Name     |Pts|Ast|Reb|FG%"
-        ttk.Label(parent, text=headers, font=font_used).pack(anchor="w", padx=5)
-
-
-if __name__ == '__main__':
-    app = MainMenu()
+if __name__ == "__main__":
+    app = BasketballManager()
     app.mainloop()
