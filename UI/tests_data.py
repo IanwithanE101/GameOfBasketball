@@ -12,6 +12,12 @@ class TestData:
     def __init__(self):
         print("WARNING: Using TestData class, replace with real API calls later!")
 
+    def manual_add_game(self, game):
+        print("WARNING: Adding manual test game to schedule.")
+        if not hasattr(self, '_manual_games'):
+            self._manual_games = []
+        self._manual_games.append(game)
+
     def get_schedule(self, start_date, end_date):
         print("WARNING: Using FAKE SCHEDULE data! (TestData.get_schedule called)")
         schedule = []
@@ -24,7 +30,9 @@ class TestData:
                 'location': f"Arena {current_date.day}"
             })
             current_date += timedelta(days=1)
-        return schedule
+        if hasattr(self, '_manual_games'):
+            schedule.extend(self._manual_games)
+        return sorted(schedule, key=lambda g: g['date'])
 
     import random
     from datetime import date
