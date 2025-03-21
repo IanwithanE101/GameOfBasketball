@@ -16,6 +16,30 @@ public class TeamsController : ControllerBase
         _context = context;
     }
 
+    // GET: api/Teams
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Team>>> GetTeams()
+    {
+        try
+        {
+            var teams = await _context.Teams
+                .Select(t => new TeamDTO // Project to a simpler DTO
+                {
+                    Team_ID = t.Team_ID,
+                    Team_Name = t.Team_Name,
+                    Team_City = t.Team_City,
+                })
+                .ToListAsync();
+
+            return Ok(teams);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetTeams: {ex.Message}");
+            return StatusCode(500, "Internal Server Error");
+        }
+    }
+
     // GET: api/Teams/5
     [HttpGet("{id}", Name = "GetTeamById")] // Named route
     public async Task<ActionResult<Team>> GetTeam(int id)
@@ -28,6 +52,35 @@ public class TeamsController : ControllerBase
         }
 
         return team;
+    }
+    // GET: api/Teams/ByName/{teamName}
+    [HttpGet("ByName/{teamName}")]
+    public async Task<ActionResult<IEnumerable<TeamDTO>>> GetTeamsByName(string teamName)
+    {
+        try
+        {
+            var teams = await _context.Teams
+                .Where(t => t.Team_Name == teamName) // Filter by team name
+                .Select(t => new TeamDTO
+                {
+                    Team_ID = t.Team_ID,
+                    Team_Name = t.Team_Name,
+                    Team_City = t.Team_City,
+                })
+                .ToListAsync();
+
+            if (!teams.Any()) // Check if any teams were found
+            {
+                return NotFound($"No teams found with the name '{teamName}'.");
+            }
+
+            return Ok(teams);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetTeamsByName: {ex.Message}");
+            return StatusCode(500, "Internal Server Error");
+        }
     }
 
     // POST: api/Teams
@@ -46,5 +99,19 @@ public class TeamsController : ControllerBase
         return CreatedAtRoute("GetTeamById", new { id = team.Team_ID }, team); // Using CreatedAtRoute
     }
 
-    // Other methods (e.g., PUT, DELETE) can be added as needed
+    // DELETE: api/Teams/5
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteTeam(int id)
+    {
+        var team = await _context.Teams.FindAsync(id);
+        if (team == null)
+        {
+            return NotFound();
+        }
+
+        _context.Teams.Remove(team);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }
