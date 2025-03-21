@@ -1,7 +1,8 @@
+import random
 import tkinter as tk
 import os
 from tkinter import ttk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageFont, ImageDraw
 from datetime import date, timedelta
 from config import UI_ELEMENTS
 from tests_data import TestData
@@ -11,6 +12,8 @@ class MainMenu(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Basketball Manager")
+        self.default_width = 1100
+        self.default_height = 600
         self.geometry("1100x600")
 
         self.set_window_icon()
@@ -37,6 +40,7 @@ class MainMenu(tk.Tk):
         # ===================== Schedule Tab =====================
         self.schedule_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.schedule_tab, text='Schedule')
+        self.bind("<Configure>", self._adjust_schedule_layout)
 
         # Main layout (25% schedule, 75% details)
         self.schedule_frame = ttk.Frame(self.schedule_tab)
@@ -51,7 +55,6 @@ class MainMenu(tk.Tk):
             self.schedule_list_frame, orient="vertical", command=self.schedule_canvas.yview
         )
 
-        # I used a normal tk.Frame so bg="white" can be set
         self.scrollable_schedule_frame = tk.Frame(self.schedule_canvas, bg="white")
 
         self.scrollable_schedule_frame.bind(
@@ -67,21 +70,50 @@ class MainMenu(tk.Tk):
         self.schedule_canvas.pack(side="left", fill="both", expand=True)
         self.schedule_scrollbar.pack(side="right", fill="y")
 
-        # ---------- RIGHT 75%: Game Details UI ----------
+        # ---------- RIGHT 75%: Game Details UI + Creator ----------
         self.details_box = ttk.Frame(self.schedule_frame, relief="sunken", borderwidth=2)
         self.details_box.pack(side="left", fill="both", expand=True)
 
-        # Container inside details box (centering contents)
-        self.details_container = ttk.Frame(self.details_box)
+        # Split vertically: top 75% for preview, bottom 25% for creator
+        self.details_top = ttk.Frame(self.details_box)
+        self.details_top.pack(fill="both", expand=True)
+
+        self.details_bottom = ttk.Frame(self.details_box)
+        self.details_bottom.pack(fill="x", pady=5)
+
+        # ========== Top: Game Preview ==========
+        self.details_container = ttk.Frame(self.details_top)
         self.details_container.pack(expand=True)
 
-        # Placeholder label before selection
         self.details_placeholder = ttk.Label(
             self.details_container,
             text="Click a game to view details",
             font=("Helvetica", 14, "italic")
         )
         self.details_placeholder.pack(anchor="center", expand=True)
+
+        # ========== Bottom: Game Creation UI ==========
+        ttk.Label(self.details_bottom, text="Create New Game", font=("Helvetica", 12, "bold")).grid(
+            row=0, column=0, columnspan=4, pady=(5, 5)
+        )
+
+        ttk.Label(self.details_bottom, text="Home Team:").grid(row=1, column=0, sticky="e", padx=5, pady=2)
+        self.home_team_var = tk.StringVar()
+        self.home_dropdown = ttk.Combobox(self.details_bottom, textvariable=self.home_team_var, state="readonly")
+        self.home_dropdown.grid(row=1, column=1, padx=5, pady=2)
+
+        ttk.Label(self.details_bottom, text="Away Team:").grid(row=1, column=2, sticky="e", padx=5, pady=2)
+        self.away_team_var = tk.StringVar()
+        self.away_dropdown = ttk.Combobox(self.details_bottom, textvariable=self.away_team_var, state="readonly")
+        self.away_dropdown.grid(row=1, column=3, padx=5, pady=2)
+
+        ttk.Label(self.details_bottom, text="Date (YYYY-MM-DD):").grid(row=2, column=0, sticky="e", padx=5, pady=2)
+        self.date_entry = ttk.Entry(self.details_bottom)
+        self.date_entry.insert(0, str(date.today() + timedelta(days=1)))
+        self.date_entry.grid(row=2, column=1, padx=5, pady=2)
+
+        self.create_button = ttk.Button(self.details_bottom, text="Create Game", command=self.create_new_game)
+        self.create_button.grid(row=2, column=3, padx=5, pady=2)
 
         # Instantiate our fake data class
         self.test_data = TestData()
@@ -93,10 +125,20 @@ class MainMenu(tk.Tk):
 
         self.bind("<Configure>", self._adjust_schedule_layout)
 
-        # Additional tabs
-        game_tab = ttk.Frame(self.notebook)
-        self.notebook.add(game_tab, text='Game')
-        ttk.Label(game_tab, text="No Game loaded.").pack(padx=10, pady=10)
+        # ===================== Game Tab =====================
+        self.game_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.game_tab, text='Game')
+
+        # GameID label (centered at the top)
+        self.game_id_label = ttk.Label(self.game_tab, text="GameID: N/A", font=("Helvetica", 16, "bold"))
+        self.game_id_label.pack(anchor="center", pady=10)
+
+        # Jersey display placeholder (will be updated dynamically)
+        style = ttk.Style()
+        theme_bg = style.lookup('TFrame', 'background')
+        self.jersey_canvas = tk.Canvas(self.game_tab, width=60, height=60, bg=theme_bg, highlightthickness=0, bd=0)
+
+        self.jersey_canvas.pack(anchor="center", pady=20)
 
         teams_tab = ttk.Frame(self.notebook)
         self.notebook.add(teams_tab, text='Teams')
@@ -113,6 +155,7 @@ class MainMenu(tk.Tk):
     #             BUILD SCHEDULE CONTENTS
     # ======================================================
     def build_schedule_contents(self):
+        """ Builds the schedule buttons and stores references for resizing. """
         today = date.today()
         start_date = today - timedelta(days=30)
         end_date = today + timedelta(days=50)
@@ -141,11 +184,13 @@ class MainMenu(tk.Tk):
                 self.scrollable_schedule_frame,
                 text=btn_text,
                 style=style_to_use,
+                width=40,  # Default width
+                padding=(5, 5),  # Default padding
                 command=lambda idx=idx: self.select_game(idx)
             )
             btn.pack(padx=10, pady=5, fill="x")
 
-            self.game_buttons.append((btn, is_past, game_data))
+            self.game_buttons.append((btn, is_past, game_data))  # Store button reference
 
         if today_index is not None:
             self.after(100, lambda: self.scroll_near_today(today_index, offset=4))
@@ -207,10 +252,29 @@ class MainMenu(tk.Tk):
         ttk.Label(parent, text=info, font=font_used).pack(anchor="w", padx=5)
 
     def _adjust_schedule_layout(self, event=None):
+        """ Dynamically resizes the schedule buttons when the window size changes. """
         total_w = self.schedule_frame.winfo_width()
+        total_h = self.schedule_frame.winfo_height()
+
+        # Compute scaling factor based on window size vs default
+        width_scale = total_w / self.default_width
+        height_scale = total_h / self.default_height
+
+        # Resize schedule frame proportions
         if total_w > 0:
             self.schedule_list_frame.config(width=int(total_w * 0.25))
             self.details_box.config(width=int(total_w * 0.75))
+
+        # Resize buttons dynamically
+        for btn, _, _ in self.game_buttons:
+            new_width = max(20, int(40 * width_scale))  # Ensure min size
+            new_padding_x = int(5 * width_scale)
+            new_padding_y = int(5 * height_scale)
+
+            btn.config(
+                width=new_width,
+                padding=(new_padding_x, new_padding_y)
+            )
 
     def _enable_scroll_wheel(self):
         self.schedule_canvas.bind("<Enter>", lambda e: self.schedule_canvas.focus_set())
@@ -227,12 +291,20 @@ class MainMenu(tk.Tk):
             self.iconphoto(False, icon_img)
 
     def on_tab_changed(self, event):
-        """Ensures the mouse wheel only works on the schedule tab."""
+        """Ensures the mouse wheel only works on the schedule tab and updates GameID when switching to the Game tab."""
         tab_text = self.notebook.tab(self.notebook.select(), 'text')
+
         if tab_text == 'Schedule':
             self.bind_all("<MouseWheel>", self._on_mousewheel_global_win)
         else:
             self.unbind_all("<MouseWheel>")
+
+        if tab_text == 'Game':
+            if hasattr(self, 'selected_game_id') and self.selected_game_id:
+                self.game_id_label.config(text=f"GameID: {self.selected_game_id}")
+                self.update_jersey_display()  # Generate jersey if game is selected
+            else:
+                self.game_id_label.config(text="GameID: No game selected")
 
     def _on_mousewheel_global_win(self, event):
         """Enable mouse wheel scrolling for the schedule canvas on Windows."""
@@ -324,6 +396,104 @@ class MainMenu(tk.Tk):
         # Must match the spacing in display_player_stats
         headers = "Pos|# | Name     |Pts|Ast|Reb|FG%"
         ttk.Label(parent, text=headers, font=font_used).pack(anchor="w", padx=5)
+
+    def generate_jersey_image(self, number):
+        """
+        Loads Jersey.png, resizes to 60x60, and draws the player's number in the center.
+        Ensures the background fully matches the Tkinter UI theme without borders.
+        Returns a PhotoImage for Tkinter display.
+        """
+        jersey_path = os.path.join(UI_ELEMENTS, "Jersey.png")
+
+        if not os.path.exists(jersey_path):
+            print(f"Error: Jersey image not found at {jersey_path}")
+            return None
+
+        try:
+            # ✅ Open the jersey image with RGBA mode (to preserve transparency)
+            img = Image.open(jersey_path).convert("RGBA").resize((60, 60), Image.Resampling.LANCZOS)
+
+            # ✅ Get the current theme background color
+            style = ttk.Style()
+            bg_color = style.lookup('TFrame', 'background')  # Dynamic theme color
+
+            # ✅ Convert Tkinter theme color to RGB
+            def tk_to_rgb(color):
+                return self.winfo_rgb(color)[0] // 256, self.winfo_rgb(color)[1] // 256, self.winfo_rgb(color)[2] // 256
+
+            bg_rgb = tk_to_rgb(bg_color)
+
+            # ✅ FULLY REPLACE background (fills entire image)
+            new_img = Image.new("RGBA", img.size, (*bg_rgb, 255))  # Fully solid background
+            new_img.paste(img, (0, 0), img)  # Paste jersey while keeping its shape
+
+            # ✅ Create a transparent overlay for text
+            txt_layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
+            draw = ImageDraw.Draw(txt_layer)
+
+            # ✅ Use a basic default font
+            font = ImageFont.load_default()
+            text = str(number)
+
+            # ✅ Get text size correctly
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (60 - text_width) // 2
+            y = (60 - text_height) // 2
+
+            # ✅ Draw number on transparent text layer
+            draw.text((x, y), text, fill="black", font=font)
+
+            # ✅ Merge text layer with the image
+            final_image = Image.alpha_composite(new_img, txt_layer)
+
+            return ImageTk.PhotoImage(final_image)
+
+        except Exception as e:
+            print(f"Error generating jersey image: {e}")
+            return None
+
+    def update_jersey_display(self):
+        """ Updates the jersey display when switching to the Game tab. """
+        if not hasattr(self, 'selected_game_id') or not self.selected_game_id:
+            return  # Do nothing if no game is selected
+
+        # Generate a random number for the jersey
+        random_number = random.randint(1, 99)
+
+        jersey_image = self.generate_jersey_image(random_number)
+        if jersey_image:
+            self.jersey_canvas.delete("all")  # Clear previous image
+            self.jersey_canvas.create_image(30, 30, image=jersey_image)
+            self.jersey_canvas.image = jersey_image  # Keep a reference to prevent garbage collection
+
+    def create_new_game(self):
+        home = self.home_team_var.get()
+        away = self.away_team_var.get()
+        date_str = self.date_entry.get()
+
+        if not home or not away or home == away:
+            print("Error: Teams must be selected and must be different.")
+            return
+
+        try:
+            game_date = date.fromisoformat(date_str)
+        except ValueError:
+            print("Error: Invalid date format.")
+            return
+
+        new_game = {
+            'date': game_date,
+            'home': home,
+            'away': away,
+            'location': "Custom Arena"
+        }
+
+        # Insert into fake data and rebuild list
+        self.test_data.manual_add_game(new_game)
+        self.clear_schedule()
+        self.build_schedule_contents()
 
 
 if __name__ == '__main__':
