@@ -4,6 +4,7 @@ using WebApplication1.Database; // Replace with your actual namespace
 using WebApplication1.Models; // Replace with your actual namespace
 using System.Threading.Tasks;
 using WebApplication1.DTOs;
+using Swashbuckle.AspNetCore.Annotations;
 
 [ApiController]
 [Route("[controller]")]
