@@ -53,7 +53,7 @@ public class StatsController : ControllerBase
             Console.WriteLine($"Error in GetStats: {ex.Message}");
             return StatusCode(500, "Internal Server Error");
         }
-    }
+    } 
 
     // GET: api/Stats/5
     [HttpGet("{id}", Name = "GetStat")]  // Added route name
@@ -93,6 +93,48 @@ public class StatsController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"Error in GetStat: {ex.Message}");
+            return StatusCode(500, "Internal Server Error");
+        }
+    }
+
+    // GET: api/Stats/Total/Player
+    [HttpGet("Player/{playerId}")]
+    public async Task<ActionResult<StatDTO>> GetTotalStatsForPlayer(int playerId)
+    {
+        try
+        {
+            var totalStats = await _context.Stats
+                .Where(s => s.Player_ID == playerId)
+                .GroupBy(s => s.Player_ID)
+                .Select(g => new StatDTO
+                {
+                    Player_ID = g.Key,
+                    Three_Points_Made = g.Sum(s => s.Three_Points_Made),
+                    Three_Points_Missed = g.Sum(s => s.Three_Points_Missed),
+                    Two_Points_Made = g.Sum(s => s.Two_Points_Made),
+                    Two_Points_Missed = g.Sum(s => s.Two_Points_Missed),
+                    Free_Throw_Made = g.Sum(s => s.Free_Throw_Made),
+                    Free_Throw_Missed = g.Sum(s => s.Free_Throw_Missed),
+                    Steals = g.Sum(s => s.Steals),
+                    Turnovers = g.Sum(s => s.Turnovers),
+                    Assists = g.Sum(s => s.Assists),
+                    Blocks = g.Sum(s => s.Blocks),
+                    Fouls = g.Sum(s => s.Fouls),
+                    Off_Rebounds = g.Sum(s => s.Off_Rebounds),
+                    Def_Rebounds = g.Sum(s => s.Def_Rebounds),
+                })
+                .FirstOrDefaultAsync();
+
+            if (totalStats == null)
+            {
+                return NotFound($"No stats found for player with ID {playerId}");
+            }
+
+            return Ok(totalStats);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetTotalStatsForPlayer: {ex.Message}");
             return StatusCode(500, "Internal Server Error");
         }
     }
@@ -221,5 +263,109 @@ public class StatsController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("Game/{gameId}")]
+    public async Task<ActionResult<IEnumerable<StatDTO>>> GetStatsForGame(int gameId)
+    {
+        try
+        {
+            var gameStats = await _context.Stats
+                .Where(s => s.Game_ID == gameId)
+                .Select(s => new StatDTO
+                {
+                    Stat_ID = s.Stat_ID,
+                    Player_ID = s.Player_ID,
+                    Game_ID = s.Game_ID,
+                    Three_Points_Made = s.Three_Points_Made,
+                    Three_Points_Missed = s.Three_Points_Missed,
+                    Two_Points_Made = s.Two_Points_Made,
+                    Two_Points_Missed = s.Two_Points_Missed,
+                    Free_Throw_Made = s.Free_Throw_Made,
+                    Free_Throw_Missed = s.Free_Throw_Missed,
+                    Steals = s.Steals,
+                    Turnovers = s.Turnovers,
+                    Assists = s.Assists,
+                    Blocks = s.Blocks,
+                    Fouls = s.Fouls,
+                    Off_Rebounds = s.Off_Rebounds,
+                    Def_Rebounds = s.Def_Rebounds,
+                })
+                .ToListAsync();
+
+            if (gameStats == null || !gameStats.Any())
+            {
+                return NotFound($"No stats found for game with ID {gameId}");
+            }
+
+            return Ok(gameStats);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetStatsForGame: {ex.Message}");
+            return StatusCode(500, "Internal Server Error");
+        }
+    }
+    
+    [HttpGet("GameScore/{gameId}")]
+    public async Task<ActionResult<object>> GetGameScore(int gameId)
+    {
+        try
+        {
+            // Fetch the game to get the home and away team IDs
+            var game = await _context.Games.FindAsync(gameId);
+            if (game == null)
+            {
+                return NotFound($"Game with ID {gameId} not found");
+            }
+
+            // Fetch the stats for the game
+            var gameStats = await _context.Stats
+                .Where(s => s.Game_ID == gameId)
+                .ToListAsync();
+
+            if (gameStats == null || !gameStats.Any())
+            {
+                return NotFound($"No stats found for game with ID {gameId}");
+            }
+
+            // Get the players for the game
+            var players = await _context.Players.Where(p => gameStats.Select(s => s.Player_ID).Contains(p.Player_ID)).ToListAsync();
+
+            // Calculate the score for each team
+            int homeTeamScore = CalculateTeamScore(gameStats, players, game.Home_ID);
+            int awayTeamScore = CalculateTeamScore(gameStats, players, game.Away_ID);
+
+            // Return the result
+            return Ok(new
+            {
+                GameId = gameId,
+                HomeTeamScore = homeTeamScore,
+                AwayTeamScore = awayTeamScore
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetGameScore: {ex.Message}");
+            return StatusCode(500, "Internal Server Error");
+        }
+    }
+
+    private int CalculateTeamScore(List<Stat> gameStats, List<Player> players, int teamId)
+    {
+        int score = 0;
+        foreach (var stat in gameStats)
+        {
+            // Find the player associated with this stat
+            var player = players.FirstOrDefault(p => p.Player_ID == stat.Player_ID);
+            if (player != null && player.Team_ID == teamId)
+            {
+                score += (stat.Three_Points_Made * 3) + (stat.Two_Points_Made * 2) + stat.Free_Throw_Made;
+            }
+        }
+        return score;
+    }
+    
 }
+
+
 
