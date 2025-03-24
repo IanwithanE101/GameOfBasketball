@@ -364,7 +364,127 @@ public class StatsController : ControllerBase
         }
         return score;
     }
-    
+
+    [HttpGet("Team/{teamId}/Game/{gameId}")]
+    public async Task<ActionResult<IEnumerable<StatDTO>>> GetTeamStatsForGame(int teamId, int gameId)
+    {
+        try
+        {
+            // Fetch the game to ensure it exists
+            var game = await _context.Games.FindAsync(gameId);
+            if (game == null)
+            {
+                return NotFound($"Game with ID {gameId} not found.");
+            }
+
+            // Fetch the players for the specified team
+            var players = await _context.Players
+                .Where(p => p.Team_ID == teamId)
+                .ToListAsync();
+
+            if (!players.Any())
+            {
+                return NotFound($"No players found for team with ID {teamId}.");
+            }
+
+            // Get the Player IDs
+            var playerIds = players.Select(p => p.Player_ID).ToList();
+
+            // Fetch the stats for the game, filtered by the players of the team
+            var teamStats = await _context.Stats
+                .Where(s => s.Game_ID == gameId && playerIds.Contains(s.Player_ID))
+                .Select(s => new StatDTO
+                {
+                    Stat_ID = s.Stat_ID,
+                    Player_ID = s.Player_ID,
+                    Game_ID = s.Game_ID,
+                    Three_Points_Made = s.Three_Points_Made,
+                    Three_Points_Missed = s.Three_Points_Missed,
+                    Two_Points_Made = s.Two_Points_Made,
+                    Two_Points_Missed = s.Two_Points_Missed,
+                    Free_Throw_Made = s.Free_Throw_Made,
+                    Free_Throw_Missed = s.Free_Throw_Missed,
+                    Steals = s.Steals,
+                    Turnovers = s.Turnovers,
+                    Assists = s.Assists,
+                    Blocks = s.Blocks,
+                    Fouls = s.Fouls,
+                    Off_Rebounds = s.Off_Rebounds,
+                    Def_Rebounds = s.Def_Rebounds,
+                })
+                .ToListAsync();
+
+            if (!teamStats.Any())
+            {
+                return NotFound($"No stats found for team with ID {teamId} in game with ID {gameId}.");
+            }
+
+            return Ok(teamStats);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetTeamStatsForGame: {ex.Message}");
+            return StatusCode(500, "Internal Server Error");
+        }
+    }
+
+
+
+    [HttpGet("Team/{teamId}/AllTime")]
+    public async Task<ActionResult<IEnumerable<StatDTO>>> GetTeamStatsAllTime(int teamId)
+    {
+        try
+        {
+            // Fetch the players for the specified team
+            var players = await _context.Players
+                .Where(p => p.Team_ID == teamId)
+                .ToListAsync();
+
+            if (!players.Any())
+            {
+                return NotFound($"No players found for team with ID {teamId}.");
+            }
+
+            // Get the Player IDs
+            var playerIds = players.Select(p => p.Player_ID).ToList();
+
+            // Fetch the stats for the players of the team
+            var teamStats = await _context.Stats
+                .Where(s => playerIds.Contains(s.Player_ID))
+                .GroupBy(s => s.Player_ID)
+                .Select(g => new StatDTO
+                {
+                    Player_ID = g.Key,
+                    Three_Points_Made = g.Sum(s => s.Three_Points_Made),
+                    Three_Points_Missed = g.Sum(s => s.Three_Points_Missed),
+                    Two_Points_Made = g.Sum(s => s.Two_Points_Made),
+                    Two_Points_Missed = g.Sum(s => s.Two_Points_Missed),
+                    Free_Throw_Made = g.Sum(s => s.Free_Throw_Made),
+                    Free_Throw_Missed = g.Sum(s => s.Free_Throw_Missed),
+                    Steals = g.Sum(s => s.Steals),
+                    Turnovers = g.Sum(s => s.Turnovers),
+                    Assists = g.Sum(s => s.Assists),
+                    Blocks = g.Sum(s => s.Blocks),
+                    Fouls = g.Sum(s => s.Fouls),
+                    Off_Rebounds = g.Sum(s => s.Off_Rebounds),
+                    Def_Rebounds = g.Sum(s => s.Def_Rebounds),
+                })
+                .ToListAsync();
+
+            if (!teamStats.Any())
+            {
+                return NotFound($"No stats found for team with ID {teamId}.");
+            }
+
+            return Ok(teamStats);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in GetTeamStatsAllTime: {ex.Message}");
+            return StatusCode(500, "Internal Server Error");
+        }
+    }
+
 }
 
 
