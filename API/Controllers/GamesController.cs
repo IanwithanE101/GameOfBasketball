@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.DTOs;
 
+namespace WebApplication1.Controllers;
+
 [ApiController]
 [Route("[controller]")]
 public class GamesController : ControllerBase
