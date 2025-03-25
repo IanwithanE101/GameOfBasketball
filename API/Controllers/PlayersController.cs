@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using WebApplication1.Database; // Replace with your actual namespace
-using WebApplication1.Models; // Replace with your actual namespace
+using WebApplication1.Database;
+using WebApplication1.Models;
 using System.Threading.Tasks;
 using WebApplication1.DTOs;
 
@@ -23,7 +23,7 @@ public class PlayersController : ControllerBase
         try
         {
             var players = await _context.Players
-                .Select(p => new PlayerDTO // Project to a simpler DTO
+                .Select(p => new PlayerDTO
                 {
                     Player_ID = p.Player_ID,
                     Team_ID = p.Team_ID,
@@ -107,13 +107,13 @@ public class PlayersController : ControllerBase
         var player = await _context.Players.FindAsync(id);
         if (player == null)
         {
-            return NotFound(); // Return 404 if the player doesn't exist
+            return NotFound();
         }
 
         // Remove the player from the context and save changes
         _context.Players.Remove(player);
         await _context.SaveChangesAsync();
 
-        return NoContent(); // Return 204 (No Content) to indicate successful deletion
+        return NoContent();
     }
 }

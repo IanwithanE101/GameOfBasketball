@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using WebApplication1.Controllers; // Replace with your project's namespace
-using WebApplication1.Database; // Replace with your project's namespace
-using WebApplication1.Models; // Replace with your project's namespace
-using WebApplication1.DTOs; // Replace with your project's namespace
+using WebApplication1.Controllers;
+using WebApplication1.Database; 
+using WebApplication1.Models; 
+using WebApplication1.DTOs; 
 using Xunit;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace TestProject1 // Adjust namespace as needed
+namespace TestProject1
 {
     public class GamesControllerTests
     {
@@ -95,7 +95,7 @@ namespace TestProject1 // Adjust namespace as needed
             using (var context = new GOBContext(_options))
             {
                 // Arrange
-                context.Teams.RemoveRange(context.Teams); // Ensure Teams are clean
+                context.Teams.RemoveRange(context.Teams); 
                 context.SaveChanges();
 
                 context.Teams.Add(new Team { Team_ID = 1, Team_Name = "Home Team", Team_City = "Home City" });
@@ -122,7 +122,7 @@ namespace TestProject1 // Adjust namespace as needed
             using (var context = new GOBContext(_options))
             {
                 // Arrange
-                context.Teams.RemoveRange(context.Teams);  // Ensure Teams are clean
+                context.Teams.RemoveRange(context.Teams); 
                 context.SaveChanges();
 
                 context.Teams.Add(new Team { Team_ID = 2, Team_Name = "Away Team", Team_City = "Away City" });
@@ -145,7 +145,7 @@ namespace TestProject1 // Adjust namespace as needed
             using (var context = new GOBContext(_options))
             {
                 // Arrange
-                context.Teams.RemoveRange(context.Teams);  // Ensure Teams are clean
+                context.Teams.RemoveRange(context.Teams); 
                 context.SaveChanges();
 
                 context.Teams.Add(new Team { Team_ID = 1, Team_Name = "Home Team", Team_City = "Home City" });

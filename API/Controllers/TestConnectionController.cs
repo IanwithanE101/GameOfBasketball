@@ -13,6 +13,8 @@ public class TestConnectionController : ControllerBase
         _configuration = configuration;
     }
 
+
+    //Check if connection is good
     [HttpGet]
     public IActionResult TestConnection()
     {

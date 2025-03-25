@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using WebApplication1.Database; // Replace with your actual namespace
-using WebApplication1.Models; // Replace with your actual namespace
+using WebApplication1.Database;
+using WebApplication1.Models; 
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;

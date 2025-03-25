@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using WebApplication1.Database; // Replace with your actual namespace
-using WebApplication1.Models; // Replace with your actual namespace
+using WebApplication1.Database;
+using WebApplication1.Models;
 using WebApplication1.DTOs;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,7 +57,7 @@ public class StatsController : ControllerBase
     } 
 
     // GET: api/Stats/5
-    [HttpGet("{id}", Name = "GetStat")]  // Added route name
+    [HttpGet("{id}", Name = "GetStat")]
     public async Task<ActionResult<StatDTO>> GetStat(int id)
     {
         try
@@ -227,7 +227,7 @@ public class StatsController : ControllerBase
             _context.Stats.Add(stat);
             await _context.SaveChangesAsync();
 
-            return CreatedAtRoute("GetStat", new { id = stat.Stat_ID }, new StatDTO  // Corrected route name
+            return CreatedAtRoute("GetStat", new { id = stat.Stat_ID }, new StatDTO 
             {
                 Stat_ID = stat.Stat_ID,
                 Player_ID = stat.Player_ID,
