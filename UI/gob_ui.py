@@ -354,7 +354,6 @@ class MainMenu(tk.Tk):
         home_frame.grid(row=0, column=0, padx=30, sticky="n")
         ttk.Label(home_frame, text=f"{game_data['home']} (Home)", font=("Consolas", 12, "bold")).pack()
         ttk.Label(home_frame, text="Players:", font=("Consolas", 10, "bold underline")).pack(pady=(10, 0))
-        self.display_column_headers(home_frame, is_starter=True)
         for line in details["home_display"]:
             # Process each line to ensure the name field is max 12 characters.
             # Assume the fields are separated by '|' and the name is the third field.
@@ -374,7 +373,6 @@ class MainMenu(tk.Tk):
         away_frame.grid(row=0, column=1, padx=30, sticky="n")
         ttk.Label(away_frame, text=f"{game_data['away']} (Away)", font=("Consolas", 12, "bold")).pack()
         ttk.Label(away_frame, text="Players:", font=("Consolas", 10, "bold underline")).pack(pady=(10, 0))
-        self.display_column_headers(away_frame, is_starter=True)
         for line in details["away_display"]:
             # Process each line similarly for the away team
             parts = line.split('|')
@@ -578,7 +576,7 @@ class MainMenu(tk.Tk):
                     widget.destroy()
                 self.stat_detail_frame.grid_columnconfigure(0, weight=1)
 
-                # --- Helper: Dynamic Row Counter ---
+                # --- Dynamic Row Counter ---
                 row_counter = [0]
 
                 def next_row():
@@ -586,16 +584,16 @@ class MainMenu(tk.Tk):
                     row_counter[0] += 1
                     return r
 
-                def clear_rows_after(row):
-                    # Destroy any widget in a row greater than the given row.
+                def clear_rows_after(r):
+                    # Remove any widget whose grid row is greater than r.
                     for widget in self.stat_detail_frame.winfo_children():
                         try:
-                            if int(widget.grid_info().get("row", 0)) > row:
+                            if int(widget.grid_info().get("row", 0)) > r:
                                 widget.destroy()
                         except Exception:
                             pass
 
-                # --- Reset function for lower-level inputs ---
+                # --- Reset Lower Inputs ---
                 def reset_lower_inputs():
                     foul_choice.set("")
                     free_throw1.set("")
@@ -607,17 +605,20 @@ class MainMenu(tk.Tk):
                     assist_player.set(0)
                     block_player.set(0)
                     rebound_player.set(0)
-                    # Also clear any selected jersey buttons.
                     selected_foul_btn[0] = None
                     selected_assist_btn[0] = None
                     selected_block_btn[0] = None
                     selected_rebound_btn[0] = None
+                    nonlocal submit_btn
+                    if submit_btn is not None:
+                        submit_btn.master.destroy()
+                        submit_btn = None
 
-                # --- Control Variables ---
+                # --- Control Variables & Button Trackers ---
                 shot_result = tk.StringVar(value="")  # "made" or "missed"
                 foul_choice = tk.StringVar(value="")  # "yes" or "no"
                 free_throw1 = tk.StringVar(value="")  # "made" or "missed"
-                free_throw2 = tk.StringVar(value="")  # used if shot missed
+                free_throw2 = tk.StringVar(value="")  # for a 2-pt miss free throw #2
                 assist_choice = tk.StringVar(value="")  # "yes" or "no"
                 block_choice = tk.StringVar(value="")  # "yes" or "no"
                 rebound_choice = tk.StringVar(value="")  # "yes" or "no"
@@ -625,14 +626,13 @@ class MainMenu(tk.Tk):
                 assist_player = tk.IntVar(value=0)
                 block_player = tk.IntVar(value=0)
                 rebound_player = tk.IntVar(value=0)
-
-                # Arrays to track selected jersey buttons.
                 selected_foul_btn = [None]
                 selected_assist_btn = [None]
                 selected_block_btn = [None]
                 selected_rebound_btn = [None]
+                submit_btn = None  # This will hold the submit button widget
 
-                # Retrieve game record and team IDs.
+                # Retrieve game record for color coding.
                 game_rec = next((g for g in self.test_data.db["Games"] if g["GameID"] == self.selected_game_id), {})
                 home_team_id = game_rec.get("HomeTeamID")
                 away_team_id = game_rec.get("AwayTeamID")
@@ -641,19 +641,18 @@ class MainMenu(tk.Tk):
                 shot_frame = ttk.Frame(self.stat_detail_frame)
                 shot_frame.grid(row=next_row(), column=0, pady=5)
                 ttk.Label(shot_frame, text="Was the shot made?").grid(row=0, column=0, padx=5, pady=5)
-                shot_rb = ttk.Frame(shot_frame)
-                shot_rb.grid(row=0, column=1, padx=5, pady=5)
-                ttk.Radiobutton(shot_rb, text="Made", variable=shot_result, value="made",
-                                command=lambda: (reset_lower_inputs(),
-                                                 clear_rows_after(int(shot_frame.grid_info()["row"])),
-                                                 update_shot())).grid(row=0, column=0, padx=10)
-                ttk.Radiobutton(shot_rb, text="Missed", variable=shot_result, value="missed",
-                                command=lambda: (reset_lower_inputs(),
-                                                 clear_rows_after(int(shot_frame.grid_info()["row"])),
-                                                 update_shot())).grid(row=0, column=1, padx=10)
+                shot_rb_frame = ttk.Frame(shot_frame)
+                shot_rb_frame.grid(row=0, column=1, padx=5, pady=5)
+                ttk.Radiobutton(shot_rb_frame, text="Made", variable=shot_result, value="made",
+                                command=lambda: (
+                                reset_lower_inputs(), clear_rows_after(int(shot_frame.grid_info()["row"])),
+                                update_shot())).grid(row=0, column=0, padx=10)
+                ttk.Radiobutton(shot_rb_frame, text="Missed", variable=shot_result, value="missed",
+                                command=lambda: (
+                                reset_lower_inputs(), clear_rows_after(int(shot_frame.grid_info()["row"])),
+                                update_shot())).grid(row=0, column=1, padx=10)
 
                 def update_shot():
-                    # After choosing made/missed, always ask if the shooter was fouled.
                     add_foul_question()
 
                 # --- Row 1: Fouled Question ---
@@ -672,7 +671,7 @@ class MainMenu(tk.Tk):
                                     command=lambda: (clear_rows_after(r), add_free_throw_section())).grid(row=0,
                                                                                                           column=1,
                                                                                                           padx=10)
-                    update_submit()
+                    update_submit_if_allowed()
 
                 # --- Row 2: Fouling Player Selection (if fouled) ---
                 def add_foul_player_selection():
@@ -691,11 +690,12 @@ class MainMenu(tk.Tk):
                     for cand in candidates:
                         img = self.generate_jersey_image(cand["Jersey_Number"])
                         bg = "lightblue" if cand.get("TeamID") == home_team_id else "lightpink"
-                        cur_btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg)
-                        cur_btn.image = img
-                        cur_btn.grid(row=0, column=col, padx=5, pady=2)
-                        cur_btn.config(command=lambda pid=cand["PlayerID"], btn=cur_btn: make_foul_select(pid, btn))
+                        btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg)
+                        btn.image = img
+                        btn.grid(row=0, column=col, padx=5, pady=2)
+                        btn.config(command=lambda pid=cand["PlayerID"], b=btn: make_foul_select(pid, b))
                         col += 1
+                    update_submit_if_allowed()
                     add_free_throw_section()
 
                 def make_foul_select(pid, btn):
@@ -704,7 +704,7 @@ class MainMenu(tk.Tk):
                     foul_player.set(pid)
                     selected_foul_btn[0] = btn
                     btn.config(relief="sunken")
-                    update_submit()
+                    update_submit_if_allowed()
 
                 # --- Row 3: Free Throw Section ---
                 def add_free_throw_section():
@@ -749,18 +749,20 @@ class MainMenu(tk.Tk):
                                                                                                              padx=10)
                     else:
                         add_next_question()
+                    update_submit_if_allowed()
 
                 # --- Row 4: Next Branch ---
                 def add_next_question():
-                    # After free throw(s), continue the flow.
-                    # Reset the row counter so that new items are placed immediately below the last item.
                     clear_rows_after(next_row() - 1)
                     if shot_result.get() == "made":
                         add_assist_question()
                     elif shot_result.get() == "missed":
-                        add_block_question()
+                        if foul_choice.get() == "yes":
+                            add_rebound_question()
+                        else:
+                            add_block_question()
                     else:
-                        update_submit()
+                        update_submit_if_allowed()
 
                 # --- Row 5: Assist Question (for made shots) ---
                 def add_assist_question():
@@ -775,8 +777,9 @@ class MainMenu(tk.Tk):
                                                                                                                column=0,
                                                                                                                padx=10)
                     ttk.Radiobutton(a_rb, text="No", variable=assist_choice, value="no",
-                                    command=lambda: (clear_rows_after(r), update_submit())).grid(row=0, column=1,
-                                                                                                 padx=10)
+                                    command=lambda: (clear_rows_after(r), update_submit_if_allowed())).grid(row=0,
+                                                                                                            column=1,
+                                                                                                            padx=10)
 
                 def add_assist_player_selection():
                     r = next_row()
@@ -798,7 +801,7 @@ class MainMenu(tk.Tk):
                         cur_btn.grid(row=0, column=col, padx=5, pady=2)
                         cur_btn.config(command=lambda pid=tm["PlayerID"], btn=cur_btn: make_assist_select(pid, btn))
                         col += 1
-                    update_submit()
+                    update_submit_if_allowed()
 
                 def make_assist_select(pid, btn):
                     if selected_assist_btn[0] is not None and selected_assist_btn[0].winfo_exists():
@@ -806,9 +809,9 @@ class MainMenu(tk.Tk):
                     assist_player.set(pid)
                     selected_assist_btn[0] = btn
                     btn.config(relief="sunken")
-                    update_submit()
+                    update_submit_if_allowed()
 
-                # --- Block Question (for missed shots) ---
+                # --- Block Question (for missed shots without foul) ---
                 def add_block_question():
                     r = next_row()
                     b_frame = ttk.Frame(self.stat_detail_frame)
@@ -823,7 +826,7 @@ class MainMenu(tk.Tk):
                     ttk.Radiobutton(b_rb, text="No", variable=block_choice, value="no",
                                     command=lambda: (clear_rows_after(r), add_rebound_question())).grid(row=0, column=1,
                                                                                                         padx=10)
-                    update_submit()
+                    update_submit_if_allowed()
 
                 def add_block_player_selection():
                     r = next_row()
@@ -854,7 +857,7 @@ class MainMenu(tk.Tk):
                     block_player.set(pid)
                     selected_block_btn[0] = btn
                     btn.config(relief="sunken")
-                    update_submit()
+                    update_submit_if_allowed()
 
                 # --- Rebound Question ---
                 def add_rebound_question():
@@ -869,9 +872,10 @@ class MainMenu(tk.Tk):
                                                                                                                 column=0,
                                                                                                                 padx=10)
                     ttk.Radiobutton(r_rb, text="No", variable=rebound_choice, value="no",
-                                    command=lambda: (clear_rows_after(r), update_submit())).grid(row=0, column=1,
-                                                                                                 padx=10)
-                    update_submit()
+                                    command=lambda: (clear_rows_after(r), update_submit_if_allowed())).grid(row=0,
+                                                                                                            column=1,
+                                                                                                            padx=10)
+                    update_submit_if_allowed()
 
                 def add_rebound_player_selection():
                     r = next_row()
@@ -890,7 +894,7 @@ class MainMenu(tk.Tk):
                         cur_btn.grid(row=0, column=col, padx=5, pady=2)
                         cur_btn.config(command=lambda pid=rp["PlayerID"], btn=cur_btn: make_rebound_select(pid, btn))
                         col += 1
-                    update_submit()
+                    update_submit_if_allowed()
 
                 def make_rebound_select(pid, btn):
                     if selected_rebound_btn[0] is not None and selected_rebound_btn[0].winfo_exists():
@@ -898,11 +902,15 @@ class MainMenu(tk.Tk):
                     rebound_player.set(pid)
                     selected_rebound_btn[0] = btn
                     btn.config(relief="sunken")
-                    update_submit()
+                    update_submit_if_allowed()
 
                 # --- Submit Section ---
-                def update_submit():
-                    # Check if all required fields are filled.
+                def update_submit_if_allowed():
+                    # Only allow submit at the following points:
+                    # • After selecting an assisting player OR after saying “no” to assist,
+                    # • After saying “no” to rebound,
+                    # • After selecting a rebounder.
+                    # Conditions for completeness:
                     complete = True
                     if shot_result.get() not in ["made", "missed"]:
                         complete = False
@@ -911,39 +919,33 @@ class MainMenu(tk.Tk):
                     if foul_choice.get() == "yes" and foul_player.get() == 0:
                         complete = False
                     if foul_choice.get() == "yes":
-                        if shot_result.get() == "made" and free_throw1.get() not in ["made", "missed"]:
-                            complete = False
-                        elif shot_result.get() == "missed" and (
-                                free_throw1.get() not in ["made", "missed"] or free_throw2.get() not in ["made",
-                                                                                                         "missed"]):
+                        if free_throw1.get() not in ["made", "missed"]:
                             complete = False
                     if shot_result.get() == "made":
                         if assist_choice.get() not in ["yes", "no"]:
                             complete = False
                         if assist_choice.get() == "yes" and assist_player.get() == 0:
                             complete = False
-                    if shot_result.get() == "missed":
+                    if shot_result.get() == "missed" and foul_choice.get() == "no":
                         if block_choice.get() not in ["yes", "no"]:
                             complete = False
-                        if block_choice.get() == "yes" and block_player.get() == 0:
-                            complete = False
+                    if shot_result.get() == "missed":
                         if rebound_choice.get() not in ["yes", "no"]:
                             complete = False
                         if rebound_choice.get() == "yes" and rebound_player.get() == 0:
                             complete = False
 
-                    # Remove any submit button placed below the last used row.
-                    for widget in self.stat_detail_frame.winfo_children():
-                        try:
-                            if int(widget.grid_info().get("row", 0)) >= row_counter[0]:
-                                widget.destroy()
-                        except Exception:
-                            pass
+                    nonlocal submit_btn
                     if complete:
-                        s_frame = ttk.Frame(self.stat_detail_frame)
-                        s_frame.grid(row=next_row(), column=0, pady=5)
-                        submit_btn = ttk.Button(s_frame, text="Submit", command=submit_all)
-                        submit_btn.grid(row=0, column=0, padx=5, pady=5)
+                        if submit_btn is None:
+                            s_frame = ttk.Frame(self.stat_detail_frame)
+                            s_frame.grid(row=next_row(), column=0, pady=5)
+                            submit_btn = ttk.Button(s_frame, text="Submit", command=submit_all)
+                            submit_btn.grid(row=0, column=0, padx=5, pady=5)
+                    else:
+                        if submit_btn is not None:
+                            submit_btn.master.destroy()
+                            submit_btn = None
 
                 def submit_all():
                     game_id = self.selected_game_id
@@ -968,8 +970,9 @@ class MainMenu(tk.Tk):
                                 self.update_player_stats(game_id, shooter_id, "ft_make")
                             elif free_throw2.get() == "missed":
                                 self.update_player_stats(game_id, shooter_id, "ft_miss")
-                        if block_choice.get() == "yes" and block_player.get() != 0:
-                            self.update_player_stats(game_id, block_player.get(), "block")
+                        else:
+                            if block_choice.get() == "yes" and block_player.get() != 0:
+                                self.update_player_stats(game_id, block_player.get(), "block")
                         if rebound_choice.get() == "yes" and rebound_player.get() != 0:
                             self.update_player_stats(game_id, rebound_player.get(), "rebound")
                     clear_rows_after(0)
@@ -977,96 +980,239 @@ class MainMenu(tk.Tk):
                     final_frame.grid(row=next_row(), column=0, pady=5)
                     ttk.Label(final_frame, text="Stat(s) updated.").grid(row=0, column=0, padx=5, pady=5)
 
-                # --- Utility: Clear a frame ---
-                def clear_frame(frm):
-                    for widget in frm.winfo_children():
-                        widget.destroy()
-
-                # Start by checking if submit conditions are met.
-                update_submit()
+                update_submit_if_allowed()
 
             case "3pt":
+                # Set header and clear previous content.
                 self.stat_detail_frame.config(text=f"3-Point Attempt for {player['Last_Name']}")
                 for widget in self.stat_detail_frame.winfo_children():
                     widget.destroy()
-
-                # Ensure content is centered.
                 self.stat_detail_frame.grid_columnconfigure(0, weight=1)
 
-                # Retrieve the game record so we can color code based on team.
-                game_rec = next((g for g in self.test_data.db["Games"] if g["GameID"] == self.selected_game_id), {})
-                home_team_id = game_rec.get("HomeTeamID", None)
-                away_team_id = game_rec.get("AwayTeamID", None)
+                # --- Dynamic Row Counter & Helpers ---
+                row_counter = [0]
 
-                # Create persistent frames for each row.
-                shot_frame = ttk.Frame(self.stat_detail_frame)
-                shot_frame.grid(row=0, column=0, pady=5)
-                assist_frame = ttk.Frame(self.stat_detail_frame)
-                assist_frame.grid(row=1, column=0, pady=5)
-                assist_player_frame = ttk.Frame(self.stat_detail_frame)
-                assist_player_frame.grid(row=2, column=0, pady=5)
-                block_frame = ttk.Frame(self.stat_detail_frame)
-                block_frame.grid(row=3, column=0, pady=5)
-                block_player_frame = ttk.Frame(self.stat_detail_frame)
-                block_player_frame.grid(row=4, column=0, pady=5)
-                rebound_frame = ttk.Frame(self.stat_detail_frame)
-                rebound_frame.grid(row=5, column=0, pady=5)
-                rebound_player_frame = ttk.Frame(self.stat_detail_frame)
-                rebound_player_frame.grid(row=6, column=0, pady=5)
-                submit_frame = ttk.Frame(self.stat_detail_frame)
-                submit_frame.grid(row=7, column=0, pady=5)
+                def next_row():
+                    r = row_counter[0]
+                    row_counter[0] += 1
+                    return r
 
-                # Control variables.
+                def clear_rows_after(r):
+                    for widget in self.stat_detail_frame.winfo_children():
+                        try:
+                            if int(widget.grid_info().get("row", 0)) > r:
+                                widget.destroy()
+                        except Exception:
+                            pass
+
+                def reset_lower_inputs():
+                    foul_choice.set("")
+                    free_throw1.set("")
+                    free_throw2.set("")
+                    free_throw3.set("")
+                    assist_choice.set("")
+                    block_choice.set("")
+                    rebound_choice.set("")
+                    foul_player.set(0)
+                    assist_player.set(0)
+                    block_player.set(0)
+                    rebound_player.set(0)
+                    selected_foul_btn[0] = None
+                    selected_assist_btn[0] = None
+                    selected_block_btn[0] = None
+                    selected_rebound_btn[0] = None
+                    nonlocal submit_btn
+                    if submit_btn is not None:
+                        submit_btn.master.destroy()
+                        submit_btn = None
+
+                # --- Control Variables & Button Trackers ---
                 shot_result = tk.StringVar(value="")  # "made" or "missed"
+                foul_choice = tk.StringVar(value="")  # "yes" or "no"
+                free_throw1 = tk.StringVar(value="")  # for free throw 1
+                free_throw2 = tk.StringVar(value="")  # for free throw 2 (only for missed 3pt)
+                free_throw3 = tk.StringVar(value="")  # for free throw 3 (only for missed 3pt)
                 assist_choice = tk.StringVar(value="")  # "yes" or "no"
                 block_choice = tk.StringVar(value="")  # "yes" or "no"
                 rebound_choice = tk.StringVar(value="")  # "yes" or "no"
+                foul_player = tk.IntVar(value=0)
                 assist_player = tk.IntVar(value=0)
                 block_player = tk.IntVar(value=0)
                 rebound_player = tk.IntVar(value=0)
-
-                # For tracking selected jersey button per group.
+                selected_foul_btn = [None]
                 selected_assist_btn = [None]
                 selected_block_btn = [None]
                 selected_rebound_btn = [None]
+                submit_btn = None  # Will store the submit button widget
 
-                # ------------------- Row 0: Shot Selection -------------------
+                # --- Retrieve Game Record for Color Coding ---
+                game_rec = next((g for g in self.test_data.db["Games"] if g["GameID"] == self.selected_game_id), {})
+                home_team_id = game_rec.get("HomeTeamID")
+                away_team_id = game_rec.get("AwayTeamID")
+
+                # --- Row 0: Shot Outcome ---
+                shot_frame = ttk.Frame(self.stat_detail_frame)
+                shot_frame.grid(row=next_row(), column=0, pady=5)
                 ttk.Label(shot_frame, text="Was the shot made?").grid(row=0, column=0, padx=5, pady=5)
                 shot_rb_frame = ttk.Frame(shot_frame)
                 shot_rb_frame.grid(row=0, column=1, padx=5, pady=5)
                 ttk.Radiobutton(shot_rb_frame, text="Made", variable=shot_result, value="made",
-                                command=lambda: update_made()).grid(row=0, column=0, padx=10)
+                                command=lambda: (
+                                reset_lower_inputs(), clear_rows_after(int(shot_frame.grid_info()["row"])),
+                                update_shot())).grid(row=0, column=0, padx=10)
                 ttk.Radiobutton(shot_rb_frame, text="Missed", variable=shot_result, value="missed",
-                                command=lambda: update_missed()).grid(row=0, column=1, padx=10)
+                                command=lambda: (
+                                reset_lower_inputs(), clear_rows_after(int(shot_frame.grid_info()["row"])),
+                                update_shot())).grid(row=0, column=1, padx=10)
 
-                # ------------------- Row 1: Assist Question (if Made) -------------------
-                def update_made():
-                    # Remove lower sections.
-                    block_frame.grid_forget()
-                    block_player_frame.grid_forget()
-                    rebound_frame.grid_forget()
-                    rebound_player_frame.grid_forget()
-                    # Always show assist question.
-                    assist_frame.grid(row=1, column=0, pady=5)
-                    for widget in assist_frame.winfo_children():
-                        widget.destroy()
-                    ttk.Label(assist_frame, text="Was it assisted?").grid(row=0, column=0, padx=5, pady=5)
-                    assist_rb = ttk.Frame(assist_frame)
-                    assist_rb.grid(row=0, column=1, padx=5, pady=5)
-                    ttk.Radiobutton(assist_rb, text="Yes", variable=assist_choice, value="yes",
-                                    command=lambda: update_assist_player()).grid(row=0, column=0, padx=10)
-                    ttk.Radiobutton(assist_rb, text="No", variable=assist_choice, value="no",
-                                    command=lambda: clear_frame(assist_player_frame)).grid(row=0, column=1, padx=10)
-                    update_submit()
+                def update_shot():
+                    add_foul_question()
 
-                # ------------------- Row 2: Assist Player Selection -------------------
-                def update_assist_player():
-                    assist_player_frame.grid(row=2, column=0, pady=5)
-                    for widget in assist_player_frame.winfo_children():
-                        widget.destroy()
-                    ttk.Label(assist_player_frame, text="Select assisting player:").grid(row=0, column=0, columnspan=4,
-                                                                                         padx=5, pady=5)
-                    btn_frame = ttk.Frame(assist_player_frame)
+                # --- Row 1: Fouled Question ---
+                def add_foul_question():
+                    r = next_row()
+                    f_frame = ttk.Frame(self.stat_detail_frame)
+                    f_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(f_frame, text="Was the shooter fouled?").grid(row=0, column=0, padx=5, pady=5)
+                    f_rb = ttk.Frame(f_frame)
+                    f_rb.grid(row=0, column=1, padx=5, pady=5)
+                    ttk.Radiobutton(f_rb, text="Yes", variable=foul_choice, value="yes",
+                                    command=lambda: (clear_rows_after(r), add_foul_player_selection())).grid(row=0,
+                                                                                                             column=0,
+                                                                                                             padx=10)
+                    ttk.Radiobutton(f_rb, text="No", variable=foul_choice, value="no",
+                                    command=lambda: (clear_rows_after(r), add_free_throw_section())).grid(row=0,
+                                                                                                          column=1,
+                                                                                                          padx=10)
+                    update_submit_if_allowed()
+
+                # --- Row 2: Fouling Player Selection (if fouled) ---
+                def add_foul_player_selection():
+                    r = next_row()
+                    fp_frame = ttk.Frame(self.stat_detail_frame)
+                    fp_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(fp_frame, text="Select fouling player:").grid(row=0, column=0, columnspan=4, padx=5,
+                                                                            pady=5)
+                    btn_frame = ttk.Frame(fp_frame)
+                    btn_frame.grid(row=1, column=0, columnspan=4)
+                    shooter_team = player.get("TeamID")
+                    opposing_team = home_team_id if shooter_team != home_team_id else away_team_id
+                    candidates = [p for p in self.test_data.db["Players"]
+                                  if p["PlayerID"] in self.currentLineup and p.get("TeamID") == opposing_team][:5]
+                    col = 0
+                    for cand in candidates:
+                        img = self.generate_jersey_image(cand["Jersey_Number"])
+                        bg = "lightblue" if cand.get("TeamID") == home_team_id else "lightpink"
+                        btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg)
+                        btn.image = img
+                        btn.grid(row=0, column=col, padx=5, pady=2)
+                        btn.config(command=lambda pid=cand["PlayerID"], b=btn: make_foul_select(pid, b))
+                        col += 1
+                    update_submit_if_allowed()
+                    add_free_throw_section()
+
+                def make_foul_select(pid, btn):
+                    if selected_foul_btn[0] is not None and selected_foul_btn[0].winfo_exists():
+                        selected_foul_btn[0].config(relief="raised")
+                    foul_player.set(pid)
+                    selected_foul_btn[0] = btn
+                    btn.config(relief="sunken")
+                    update_submit_if_allowed()
+
+                # --- Row 3: Free Throw Section ---
+                def add_free_throw_section():
+                    r = next_row()
+                    ft_frame = ttk.Frame(self.stat_detail_frame)
+                    ft_frame.grid(row=r, column=0, pady=5)
+                    if foul_choice.get() == "yes":
+                        if shot_result.get() == "made":
+                            ttk.Label(ft_frame, text="Free Throw Attempt:").grid(row=0, column=0, padx=5, pady=5)
+                            ft_rb = ttk.Frame(ft_frame)
+                            ft_rb.grid(row=0, column=1, padx=5, pady=5)
+                            ttk.Radiobutton(ft_rb, text="Made", variable=free_throw1, value="made",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=0,
+                                                                                                             padx=10)
+                            ttk.Radiobutton(ft_rb, text="Missed", variable=free_throw1, value="missed",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=1,
+                                                                                                             padx=10)
+                        elif shot_result.get() == "missed":
+                            # For a missed 3pt attempt with a foul, there are three free throws.
+                            ttk.Label(ft_frame, text="Free Throw Attempt 1:").grid(row=0, column=0, padx=5, pady=5)
+                            ft1_rb = ttk.Frame(ft_frame)
+                            ft1_rb.grid(row=0, column=1, padx=5, pady=5)
+                            ttk.Radiobutton(ft1_rb, text="Made", variable=free_throw1, value="made",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=0,
+                                                                                                             padx=10)
+                            ttk.Radiobutton(ft1_rb, text="Missed", variable=free_throw1, value="missed",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=1,
+                                                                                                             padx=10)
+                            ttk.Label(ft_frame, text="Free Throw Attempt 2:").grid(row=1, column=0, padx=5, pady=5)
+                            ft2_rb = ttk.Frame(ft_frame)
+                            ft2_rb.grid(row=1, column=1, padx=5, pady=5)
+                            ttk.Radiobutton(ft2_rb, text="Made", variable=free_throw2, value="made",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=0,
+                                                                                                             padx=10)
+                            ttk.Radiobutton(ft2_rb, text="Missed", variable=free_throw2, value="missed",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=1,
+                                                                                                             padx=10)
+                            ttk.Label(ft_frame, text="Free Throw Attempt 3:").grid(row=2, column=0, padx=5, pady=5)
+                            ft3_rb = ttk.Frame(ft_frame)
+                            ft3_rb.grid(row=2, column=1, padx=5, pady=5)
+                            ttk.Radiobutton(ft3_rb, text="Made", variable=free_throw3, value="made",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=0,
+                                                                                                             padx=10)
+                            ttk.Radiobutton(ft3_rb, text="Missed", variable=free_throw3, value="missed",
+                                            command=lambda: (clear_rows_after(r), add_next_question())).grid(row=0,
+                                                                                                             column=1,
+                                                                                                             padx=10)
+                    else:
+                        add_next_question()
+                    update_submit_if_allowed()
+
+                # --- Row 4: Next Branch ---
+                def add_next_question():
+                    clear_rows_after(next_row() - 1)
+                    if shot_result.get() == "made":
+                        add_assist_question()
+                    elif shot_result.get() == "missed":
+                        if foul_choice.get() == "yes":
+                            add_rebound_question()
+                        else:
+                            add_block_question()
+                    else:
+                        update_submit_if_allowed()
+
+                # --- Row 5: Assist Question (for made shots) ---
+                def add_assist_question():
+                    r = next_row()
+                    a_frame = ttk.Frame(self.stat_detail_frame)
+                    a_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(a_frame, text="Was it assisted?").grid(row=0, column=0, padx=5, pady=5)
+                    a_rb = ttk.Frame(a_frame)
+                    a_rb.grid(row=0, column=1, padx=5, pady=5)
+                    ttk.Radiobutton(a_rb, text="Yes", variable=assist_choice, value="yes",
+                                    command=lambda: (clear_rows_after(r), add_assist_player_selection())).grid(row=0,
+                                                                                                               column=0,
+                                                                                                               padx=10)
+                    ttk.Radiobutton(a_rb, text="No", variable=assist_choice, value="no",
+                                    command=lambda: (clear_rows_after(r), update_submit_if_allowed())).grid(row=0,
+                                                                                                            column=1,
+                                                                                                            padx=10)
+
+                def add_assist_player_selection():
+                    r = next_row()
+                    ap_frame = ttk.Frame(self.stat_detail_frame)
+                    ap_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(ap_frame, text="Select assisting player:").grid(row=0, column=0, columnspan=4, padx=5,
+                                                                              pady=5)
+                    btn_frame = ttk.Frame(ap_frame)
                     btn_frame.grid(row=1, column=0, columnspan=4)
                     teammates = [p for p in self.test_data.db["Players"]
                                  if p["PlayerID"] in self.currentLineup and p.get("TeamID") == player.get("TeamID")
@@ -1074,152 +1220,200 @@ class MainMenu(tk.Tk):
                     col = 0
                     for tm in teammates:
                         img = self.generate_jersey_image(tm["Jersey_Number"])
-                        # Color code based on team.
-                        bg_color = "lightblue" if tm.get("TeamID") == home_team_id else "lightpink"
-                        btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg_color)
-                        btn.image = img
-                        btn.config(command=lambda pid=tm["PlayerID"], b=btn: make_assist_select(pid, b))
-                        btn.grid(row=0, column=col, padx=5, pady=2)
+                        bg = "lightblue" if tm.get("TeamID") == home_team_id else "lightpink"
+                        cur_btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg)
+                        cur_btn.image = img
+                        cur_btn.grid(row=0, column=col, padx=5, pady=2)
+                        cur_btn.config(command=lambda pid=tm["PlayerID"], btn=cur_btn: make_assist_select(pid, btn))
                         col += 1
-                    update_submit()
+                    update_submit_if_allowed()
 
                 def make_assist_select(pid, btn):
                     if selected_assist_btn[0] is not None and selected_assist_btn[0].winfo_exists():
-                        selected_assist_btn[0].config(relief="raised", padx=5)
+                        selected_assist_btn[0].config(relief="raised")
                     assist_player.set(pid)
                     selected_assist_btn[0] = btn
-                    btn.config(relief="sunken", padx=15)
-                    update_submit()
+                    btn.config(relief="sunken")
+                    update_submit_if_allowed()
 
-                # ------------------- Row 3: Block/Rebound Sequence (if Missed) -------------------
-                def update_missed():
-                    # Remove assist sections.
-                    assist_frame.grid_forget()
-                    assist_player_frame.grid_forget()
-                    block_frame.grid(row=1, column=0, pady=5)
-                    for widget in block_frame.winfo_children():
-                        widget.destroy()
-                    ttk.Label(block_frame, text="Was it blocked?").grid(row=0, column=0, padx=5, pady=5)
-                    block_rb = ttk.Frame(block_frame)
-                    block_rb.grid(row=0, column=1, padx=5, pady=5)
-                    ttk.Radiobutton(block_rb, text="Yes", variable=block_choice, value="yes",
-                                    command=lambda: update_block_player()).grid(row=0, column=0, padx=10)
-                    ttk.Radiobutton(block_rb, text="No", variable=block_choice, value="no",
-                                    command=lambda: clear_frame(block_player_frame) or update_rebound()).grid(row=0,
-                                                                                                              column=1,
+                # --- Block Question (for missed shots without foul) ---
+                def add_block_question():
+                    r = next_row()
+                    b_frame = ttk.Frame(self.stat_detail_frame)
+                    b_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(b_frame, text="Was it blocked?").grid(row=0, column=0, padx=5, pady=5)
+                    b_rb = ttk.Frame(b_frame)
+                    b_rb.grid(row=0, column=1, padx=5, pady=5)
+                    ttk.Radiobutton(b_rb, text="Yes", variable=block_choice, value="yes",
+                                    command=lambda: (clear_rows_after(r), add_block_player_selection())).grid(row=0,
+                                                                                                              column=0,
                                                                                                               padx=10)
-                    update_submit()
+                    ttk.Radiobutton(b_rb, text="No", variable=block_choice, value="no",
+                                    command=lambda: (clear_rows_after(r), add_rebound_question())).grid(row=0, column=1,
+                                                                                                        padx=10)
+                    update_submit_if_allowed()
 
-                # ------------------- Row 4: Block Player Selection -------------------
-                def update_block_player():
-                    block_player_frame.grid(row=2, column=0, pady=5)
-                    for widget in block_player_frame.winfo_children():
-                        widget.destroy()
-                    ttk.Label(block_player_frame, text="Select blocking player:").grid(row=0, column=0, columnspan=5,
-                                                                                       padx=5, pady=5)
-                    btn_frame = ttk.Frame(block_player_frame)
+                def add_block_player_selection():
+                    r = next_row()
+                    bp_frame = ttk.Frame(self.stat_detail_frame)
+                    bp_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(bp_frame, text="Select blocking player:").grid(row=0, column=0, columnspan=5, padx=5,
+                                                                             pady=5)
+                    btn_frame = ttk.Frame(bp_frame)
                     btn_frame.grid(row=1, column=0, columnspan=5)
-                    if game_rec:
-                        shooter_team = player.get("TeamID")
-                        opposing_team = game_rec["HomeTeamID"] if game_rec["HomeTeamID"] != shooter_team else game_rec[
-                            "AwayTeamID"]
-                        opponents = [p for p in self.test_data.db["Players"]
-                                     if p["PlayerID"] in self.currentLineup and p.get("TeamID") == opposing_team][:5]
-                        col = 0
-                        for opp in opponents:
-                            img = self.generate_jersey_image(opp["Jersey_Number"])
-                            bg_color = "lightblue" if opp.get("TeamID") == home_team_id else "lightpink"
-                            btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg_color)
-                            btn.image = img
-                            btn.config(command=lambda pid=opp["PlayerID"], b=btn: make_block_select(pid, b))
-                            btn.grid(row=0, column=col, padx=5, pady=2)
-                            col += 1
-                    update_rebound()
+                    shooter_team = player.get("TeamID")
+                    opposing_team = home_team_id if game_rec["HomeTeamID"] != shooter_team else game_rec["AwayTeamID"]
+                    opponents = [p for p in self.test_data.db["Players"]
+                                 if p["PlayerID"] in self.currentLineup and p.get("TeamID") == opposing_team][:5]
+                    col = 0
+                    for opp in opponents:
+                        img = self.generate_jersey_image(opp["Jersey_Number"])
+                        bg = "lightblue" if opp.get("TeamID") == home_team_id else "lightpink"
+                        cur_btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg)
+                        cur_btn.image = img
+                        cur_btn.grid(row=0, column=col, padx=5, pady=2)
+                        cur_btn.config(command=lambda pid=opp["PlayerID"], btn=cur_btn: make_block_select(pid, btn))
+                        col += 1
+                    add_rebound_question()
 
                 def make_block_select(pid, btn):
                     if selected_block_btn[0] is not None and selected_block_btn[0].winfo_exists():
-                        selected_block_btn[0].config(relief="raised", padx=5)
+                        selected_block_btn[0].config(relief="raised")
                     block_player.set(pid)
                     selected_block_btn[0] = btn
-                    btn.config(relief="sunken", padx=15)
-                    update_submit()
+                    btn.config(relief="sunken")
+                    update_submit_if_allowed()
 
-                # ------------------- Row 5: Rebound Question -------------------
-                def update_rebound():
-                    rebound_frame.grid(row=3, column=0, pady=5)
-                    for widget in rebound_frame.winfo_children():
-                        widget.destroy()
-                    ttk.Label(rebound_frame, text="Was it rebounded?").grid(row=0, column=0, padx=5, pady=5)
-                    rebound_rb = ttk.Frame(rebound_frame)
-                    rebound_rb.grid(row=0, column=1, padx=5, pady=5)
-                    ttk.Radiobutton(rebound_rb, text="Yes", variable=rebound_choice, value="yes",
-                                    command=lambda: update_rebound_player()).grid(row=0, column=0, padx=10)
-                    ttk.Radiobutton(rebound_rb, text="No", variable=rebound_choice, value="no",
-                                    command=lambda: clear_frame(rebound_player_frame) or update_submit()).grid(row=0,
-                                                                                                               column=1,
-                                                                                                               padx=10)
-                    update_submit()
+                # --- Rebound Question ---
+                def add_rebound_question():
+                    r = next_row()
+                    r_frame = ttk.Frame(self.stat_detail_frame)
+                    r_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(r_frame, text="Was it rebounded?").grid(row=0, column=0, padx=5, pady=5)
+                    r_rb = ttk.Frame(r_frame)
+                    r_rb.grid(row=0, column=1, padx=5, pady=5)
+                    ttk.Radiobutton(r_rb, text="Yes", variable=rebound_choice, value="yes",
+                                    command=lambda: (clear_rows_after(r), add_rebound_player_selection())).grid(row=0,
+                                                                                                                column=0,
+                                                                                                                padx=10)
+                    ttk.Radiobutton(r_rb, text="No", variable=rebound_choice, value="no",
+                                    command=lambda: (clear_rows_after(r), update_submit_if_allowed())).grid(row=0,
+                                                                                                            column=1,
+                                                                                                            padx=10)
+                    update_submit_if_allowed()
 
-                # ------------------- Row 6: Rebound Player Selection -------------------
-                def update_rebound_player():
-                    rebound_player_frame.grid(row=4, column=0, pady=5)
-                    for widget in rebound_player_frame.winfo_children():
-                        widget.destroy()
-                    ttk.Label(rebound_player_frame, text="Select rebounder:").grid(row=0, column=0, columnspan=10,
-                                                                                   padx=5, pady=5)
-                    btn_frame = ttk.Frame(rebound_player_frame)
+                def add_rebound_player_selection():
+                    r = next_row()
+                    rp_frame = ttk.Frame(self.stat_detail_frame)
+                    rp_frame.grid(row=r, column=0, pady=5)
+                    ttk.Label(rp_frame, text="Select rebounder:").grid(row=0, column=0, columnspan=10, padx=5, pady=5)
+                    btn_frame = ttk.Frame(rp_frame)
                     btn_frame.grid(row=1, column=0, columnspan=10)
                     rebounders = [p for p in self.test_data.db["Players"] if p["PlayerID"] in self.currentLineup][:10]
                     col = 0
                     for rp in rebounders:
                         img = self.generate_jersey_image(rp["Jersey_Number"])
-                        bg_color = "lightblue" if rp.get("TeamID") == home_team_id else "lightpink"
-                        btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg_color)
-                        btn.image = img
-                        btn.config(command=lambda pid=rp["PlayerID"], b=btn: make_rebound_select(pid, b))
-                        btn.grid(row=0, column=col, padx=5, pady=2)
+                        bg = "lightblue" if rp.get("TeamID") == home_team_id else "lightpink"
+                        cur_btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg)
+                        cur_btn.image = img
+                        cur_btn.grid(row=0, column=col, padx=5, pady=2)
+                        cur_btn.config(command=lambda pid=rp["PlayerID"], btn=cur_btn: make_rebound_select(pid, btn))
                         col += 1
-                    update_submit()
+                    update_submit_if_allowed()
 
                 def make_rebound_select(pid, btn):
                     if selected_rebound_btn[0] is not None and selected_rebound_btn[0].winfo_exists():
-                        selected_rebound_btn[0].config(relief="raised", padx=5)
+                        selected_rebound_btn[0].config(relief="raised")
                     rebound_player.set(pid)
                     selected_rebound_btn[0] = btn
-                    btn.config(relief="sunken", padx=15)
-                    update_submit()
+                    btn.config(relief="sunken")
+                    update_submit_if_allowed()
 
-                # ------------------- Row 7: Submit Button -------------------
-                def update_submit():
-                    for widget in submit_frame.winfo_children():
-                        widget.destroy()
-                    submit_btn = ttk.Button(submit_frame, text="Submit", command=lambda: submit_all())
-                    submit_btn.grid(row=0, column=0, padx=5, pady=5)
+                # --- Submit Section ---
+                def update_submit_if_allowed():
+                    complete = True
+                    if shot_result.get() not in ["made", "missed"]:
+                        complete = False
+                    if foul_choice.get() not in ["yes", "no"]:
+                        complete = False
+                    if foul_choice.get() == "yes" and foul_player.get() == 0:
+                        complete = False
+                    if foul_choice.get() == "yes":
+                        if shot_result.get() == "made":
+                            if free_throw1.get() not in ["made", "missed"]:
+                                complete = False
+                        elif shot_result.get() == "missed":
+                            if free_throw1.get() not in ["made", "missed"]:
+                                complete = False
+                            if free_throw2.get() not in ["made", "missed"]:
+                                complete = False
+                            if free_throw3.get() not in ["made", "missed"]:
+                                complete = False
+                    if shot_result.get() == "made":
+                        if assist_choice.get() not in ["yes", "no"]:
+                            complete = False
+                        if assist_choice.get() == "yes" and assist_player.get() == 0:
+                            complete = False
+                    if shot_result.get() == "missed" and foul_choice.get() == "no":
+                        if block_choice.get() not in ["yes", "no"]:
+                            complete = False
+                    if shot_result.get() == "missed":
+                        if rebound_choice.get() not in ["yes", "no"]:
+                            complete = False
+                        if rebound_choice.get() == "yes" and rebound_player.get() == 0:
+                            complete = False
+
+                    nonlocal submit_btn
+                    if complete:
+                        if submit_btn is None:
+                            s_frame = ttk.Frame(self.stat_detail_frame)
+                            s_frame.grid(row=next_row(), column=0, pady=5)
+                            submit_btn = ttk.Button(s_frame, text="Submit", command=submit_all)
+                            submit_btn.grid(row=0, column=0, padx=5, pady=5)
+                    else:
+                        if submit_btn is not None:
+                            submit_btn.master.destroy()
+                            submit_btn = None
 
                 def submit_all():
                     game_id = self.selected_game_id
                     shooter_id = player["PlayerID"]
                     if shot_result.get() == "made":
                         self.update_player_stats(game_id, shooter_id, "3pt_make")
-                        if assist_choice.get() == "yes" and assist_player.get() != 0:
-                            self.update_player_stats(game_id, assist_player.get(), "assist")
+                        if foul_choice.get() == "yes":
+                            if free_throw1.get() == "made":
+                                self.update_player_stats(game_id, shooter_id, "ft_make")
+                            elif free_throw1.get() == "missed":
+                                self.update_player_stats(game_id, shooter_id, "ft_miss")
                     elif shot_result.get() == "missed":
                         self.update_player_stats(game_id, shooter_id, "3pt_miss")
-                        if block_choice.get() == "yes" and block_player.get() != 0:
-                            self.update_player_stats(game_id, block_player.get(), "block")
-                        if rebound_choice.get() == "yes" and rebound_player.get() != 0:
-                            self.update_player_stats(game_id, rebound_player.get(), "rebound")
-                    for widget in submit_frame.winfo_children():
-                        widget.destroy()
-                    ttk.Label(submit_frame, text="Stat(s) updated.").grid(row=0, column=0, padx=5, pady=5)
+                        if foul_choice.get() == "yes":
+                            if free_throw1.get() == "made":
+                                self.update_player_stats(game_id, shooter_id, "ft_make")
+                            elif free_throw1.get() == "missed":
+                                self.update_player_stats(game_id, shooter_id, "ft_miss")
+                            if free_throw2.get() == "made":
+                                self.update_player_stats(game_id, shooter_id, "ft_make")
+                            elif free_throw2.get() == "missed":
+                                self.update_player_stats(game_id, shooter_id, "ft_miss")
+                            if free_throw3.get() == "made":
+                                self.update_player_stats(game_id, shooter_id, "ft_make")
+                            elif free_throw3.get() == "missed":
+                                self.update_player_stats(game_id, shooter_id, "ft_miss")
+                        else:
+                            if block_choice.get() == "yes" and block_player.get() != 0:
+                                self.update_player_stats(game_id, block_player.get(), "block")
+                    if assist_choice.get() == "yes" and assist_player.get() != 0:
+                        self.update_player_stats(game_id, assist_player.get(), "assist")
+                    if rebound_choice.get() == "yes" and rebound_player.get() != 0:
+                        self.update_player_stats(game_id, rebound_player.get(), "rebound")
+                    clear_rows_after(0)
+                    final_frame = ttk.Frame(self.stat_detail_frame)
+                    final_frame.grid(row=next_row(), column=0, pady=5)
+                    ttk.Label(final_frame, text="Stat(s) updated.").grid(row=0, column=0, padx=5, pady=5)
 
-                # Helper function to clear a frame (remove its children).
-                def clear_frame(frm):
-                    for widget in frm.winfo_children():
-                        widget.destroy()
+                update_submit_if_allowed()
 
-                # Start by showing the shot selection row.
-                update_submit()
             case "Stl":
                 self.stat_detail_frame.config(text=f"Steal by {player['Last_Name']}")
                 for widget in self.stat_detail_frame.winfo_children():
@@ -1407,44 +1601,43 @@ class MainMenu(tk.Tk):
                 self.stat_detail_frame.config(text=f"Assist by {player['Last_Name']}")
                 for widget in self.stat_detail_frame.winfo_children():
                     widget.destroy()
-
-                # Center the content.
                 self.stat_detail_frame.grid_columnconfigure(0, weight=1)
 
-                # Create persistent frames.
-                assist_prompt_frame = ttk.Frame(self.stat_detail_frame)
-                assist_prompt_frame.grid(row=0, column=0, pady=5)
-                assisted_frame = ttk.Frame(self.stat_detail_frame)
-                assisted_frame.grid(row=1, column=0, pady=5)
-                shot_type_frame = ttk.Frame(self.stat_detail_frame)
-                shot_type_frame.grid(row=2, column=0, pady=5)
-                submit_frame = ttk.Frame(self.stat_detail_frame)
-                submit_frame.grid(row=3, column=0, pady=5)
+                # Row counter for dynamic placement.
+                row_counter = [0]
+
+                def next_row():
+                    r = row_counter[0]
+                    row_counter[0] += 1
+                    return r
 
                 # Control variables.
                 assisted_player = tk.IntVar(value=0)
-                shot_type_choice = tk.StringVar(value="")  # Will hold "2" or "3"
+                shot_type_choice = tk.StringVar(value="")  # "2" or "3"
+                foul_choice = tk.StringVar(value="")  # "yes" or "no"
+                free_throw_result = tk.StringVar(value="")  # "made" or "missed"
                 selected_assist_btn = [None]
 
-                # Row 0: Ask which teammate was assisted.
+                # Row for assist prompt.
+                assist_prompt_frame = ttk.Frame(self.stat_detail_frame)
+                assist_prompt_frame.grid(row=next_row(), column=0, pady=5)
                 ttk.Label(assist_prompt_frame, text="Who did they assist?").pack(padx=5, pady=5)
 
-                # Get teammates on court from the same team (excluding the assisting player).
+                # Row for teammate selection.
+                assisted_frame = ttk.Frame(self.stat_detail_frame)
+                assisted_frame.grid(row=next_row(), column=0, pady=5)
+                btn_frame = ttk.Frame(assisted_frame)
+                btn_frame.pack(padx=5, pady=5)
                 teammates = [p for p in self.test_data.db["Players"]
                              if p["PlayerID"] in self.currentLineup and p.get("TeamID") == player.get("TeamID")
                              and p["PlayerID"] != player["PlayerID"]][:4]
-                btn_frame = ttk.Frame(assisted_frame)
-                btn_frame.pack(padx=5, pady=5)
-                col = 0
-                for mate in teammates:
+                for col, mate in enumerate(teammates):
                     img = self.generate_jersey_image(mate["Jersey_Number"])
-                    # Color-code: lightblue for home, lightpink for away (adjust if needed).
                     bg_color = "lightblue" if mate.get("TeamID") == player.get("TeamID") else "lightpink"
                     btn = tk.Button(btn_frame, image=img, relief="raised", borderwidth=2, bg=bg_color)
                     btn.image = img
                     btn.config(command=lambda pid=mate["PlayerID"], b=btn: make_assist_select(pid, b))
                     btn.grid(row=0, column=col, padx=5, pady=2)
-                    col += 1
 
                 def make_assist_select(pid, btn):
                     if selected_assist_btn[0] is not None and selected_assist_btn[0].winfo_exists():
@@ -1454,42 +1647,106 @@ class MainMenu(tk.Tk):
                     btn.config(relief="sunken", padx=15)
                     update_shot_type()
 
-                # Row 2: Only display shot type selection after a teammate is chosen.
+                # Row for shot type selection.
+                shot_type_frame = ttk.Frame(self.stat_detail_frame)
+                shot_type_frame.grid(row=next_row(), column=0, pady=5)
+
                 def update_shot_type():
-                    # Clear any previous shot type UI.
                     for widget in shot_type_frame.winfo_children():
                         widget.destroy()
                     ttk.Label(shot_type_frame, text="Was the assisted shot a 2 or a 3 pointer?").pack(padx=5, pady=5)
                     shot_rb_frame = ttk.Frame(shot_type_frame)
                     shot_rb_frame.pack(padx=5, pady=5)
                     ttk.Radiobutton(shot_rb_frame, text="2 Pointer", variable=shot_type_choice, value="2",
-                                    command=update_submit).pack(side="left", padx=10)
+                                    command=update_foul_section).pack(side="left", padx=10)
                     ttk.Radiobutton(shot_rb_frame, text="3 Pointer", variable=shot_type_choice, value="3",
-                                    command=update_submit).pack(side="left", padx=10)
+                                    command=update_foul_section).pack(side="left", padx=10)
+                    update_foul_section()
+
+                # Row for foul question – only shown once shot type is selected.
+                foul_frame = ttk.Frame(self.stat_detail_frame)
+
+                def update_foul_section():
+                    for widget in foul_frame.winfo_children():
+                        widget.destroy()
+                    if shot_type_choice.get() in ["2", "3"]:
+                        ttk.Label(foul_frame, text="Was the shooter fouled?").pack(padx=5, pady=5)
+                        f_rb = ttk.Frame(foul_frame)
+                        f_rb.pack(padx=5, pady=5)
+                        ttk.Radiobutton(f_rb, text="Yes", variable=foul_choice, value="yes",
+                                        command=update_free_throw_section).pack(side="left", padx=10)
+                        ttk.Radiobutton(f_rb, text="No", variable=foul_choice, value="no",
+                                        command=lambda: (clear_free_throw_frame(), update_submit())).pack(side="left",
+                                                                                                          padx=10)
+                        # Grid foul_frame in the next available row.
+                        foul_frame.grid(row=next_row(), column=0, pady=5)
+                    else:
+                        foul_frame.grid_forget()
                     update_submit()
 
-                # Row 3: Submit button.
+                # Row for free throw result – only appears if shooter was fouled.
+                free_throw_frame = ttk.Frame(self.stat_detail_frame)
+
+                def update_free_throw_section():
+                    for widget in free_throw_frame.winfo_children():
+                        widget.destroy()
+                    if foul_choice.get() == "yes":
+                        ttk.Label(free_throw_frame, text="Did the shooter make the free throw?").pack(padx=5, pady=5)
+                        ft_rb = ttk.Frame(free_throw_frame)
+                        ft_rb.pack(padx=5, pady=5)
+                        ttk.Radiobutton(ft_rb, text="Made", variable=free_throw_result, value="made",
+                                        command=update_submit).pack(side="left", padx=10)
+                        ttk.Radiobutton(ft_rb, text="Missed", variable=free_throw_result, value="missed",
+                                        command=update_submit).pack(side="left", padx=10)
+                        # Instead of calling next_row(), place free_throw_frame directly beneath foul_frame.
+                        row_of_foul = int(foul_frame.grid_info().get("row", 0))
+                        free_throw_frame.grid(row=row_of_foul + 1, column=0, pady=5)
+                    else:
+                        free_throw_frame.grid_forget()
+                    update_submit()
+
+                def clear_free_throw_frame():
+                    for widget in free_throw_frame.winfo_children():
+                        widget.destroy()
+                    free_throw_frame.grid_forget()
+
+                # Row for submit button – placed relative to the last visible question.
+                submit_frame = ttk.Frame(self.stat_detail_frame)
+
                 def update_submit():
                     for widget in submit_frame.winfo_children():
                         widget.destroy()
-                    ttk.Button(submit_frame, text="Submit", command=submit_assist).grid(row=0, column=0, padx=5, pady=5)
+                    if shot_type_choice.get() in ["2", "3"] and foul_choice.get() in ["yes", "no"]:
+                        # If fouled, ensure free throw answer is given.
+                        if foul_choice.get() == "yes" and free_throw_result.get() not in ["made", "missed"]:
+                            submit_frame.grid_forget()
+                            return
+                        # Determine the base row: if free_throw_frame is visible, use its row; otherwise use foul_frame.
+                        if foul_choice.get() == "yes" and free_throw_frame.winfo_ismapped():
+                            base_row = int(free_throw_frame.grid_info().get("row", 0))
+                        else:
+                            base_row = int(foul_frame.grid_info().get("row", 0))
+                        submit_frame.grid(row=base_row + 1, column=0, pady=5)
+                        ttk.Button(submit_frame, text="Submit", command=submit_assist).grid(row=0, column=0, padx=5,
+                                                                                            pady=5)
 
                 def submit_assist():
                     game_id = self.selected_game_id
-                    # Record an assist for the assisting player.
                     self.update_player_stats(game_id, player["PlayerID"], "assist")
-                    # Also update the assisted player's scoring stat.
                     if shot_type_choice.get() == "2":
                         self.update_player_stats(game_id, assisted_player.get(), "2pt_make")
                     elif shot_type_choice.get() == "3":
                         self.update_player_stats(game_id, assisted_player.get(), "3pt_make")
+                    if foul_choice.get() == "yes":
+                        if free_throw_result.get() == "made":
+                            self.update_player_stats(game_id, assisted_player.get(), "ft_make")
+                        elif free_throw_result.get() == "missed":
+                            self.update_player_stats(game_id, assisted_player.get(), "ft_miss")
                     for widget in submit_frame.winfo_children():
                         widget.destroy()
                     ttk.Label(submit_frame, text="Assist recorded.").grid(row=0, column=0, padx=5, pady=5)
+                    update_submit()
 
-                # Initially, do not display shot type until a teammate is selected.
-                for widget in shot_type_frame.winfo_children():
-                    widget.destroy()
                 update_submit()
 
             case "Blk":
@@ -1590,13 +1847,310 @@ class MainMenu(tk.Tk):
 
             case "Foul":
                 self.stat_detail_frame.config(text=f"Foul for {player['Last_Name']}")
-                ttk.Label(self.stat_detail_frame, text="Foul form placeholder").pack(padx=5, pady=5)
+                for widget in self.stat_detail_frame.winfo_children():
+                    widget.destroy()
+                self.stat_detail_frame.grid_columnconfigure(0, weight=1)
+
+                # Fixed row indices for each section
+                row_opp = 0
+                row_shooting = 1
+                row_shot_type = 2
+                row_shot_made = 3
+                row_free_throw = 4
+                row_submit_yes = 5  # if shooting foul = "yes"
+                row_submit_no = 2  # if shooting foul = "no" (submit appears immediately after shooting foul)
+
+                # Control variables for answers.
+                fouled_player = tk.IntVar(value=0)  # Selected opposing player.
+                shooting_foul = tk.StringVar(value="")  # "yes" or "no"
+                shot_type = tk.StringVar(value="")  # "2" or "3" (if shooting foul)
+                shot_made = tk.StringVar(value="")  # "made" or "missed"
+                free_throw_made = tk.StringVar(value="")  # For made shot branch.
+                free_throws_made = tk.StringVar(value="")  # For missed shot branch.
+
+                # Helper: Reset lower sections and clear their variables.
+                # Level 1: Clear shot_type, shot_made, free throw answers.
+                # Level 2: Clear shot_made and free throw answers.
+                # Level 3: Clear free throw answers.
+                def reset_from(level):
+                    if level <= 1:
+                        shot_type.set("")
+                        shot_made.set("")
+                        free_throw_made.set("")
+                        free_throws_made.set("")
+                        frame_shot_type.grid_forget()
+                        frame_shot_made.grid_forget()
+                        frame_free_throw.grid_forget()
+                        frame_submit.grid_forget()
+                        for f in (frame_shot_type, frame_shot_made, frame_free_throw, frame_submit):
+                            for w in f.winfo_children():
+                                w.destroy()
+                    elif level <= 2:
+                        shot_made.set("")
+                        free_throw_made.set("")
+                        free_throws_made.set("")
+                        frame_shot_made.grid_forget()
+                        frame_free_throw.grid_forget()
+                        frame_submit.grid_forget()
+                        for f in (frame_shot_made, frame_free_throw, frame_submit):
+                            for w in f.winfo_children():
+                                w.destroy()
+                    elif level <= 3:
+                        free_throw_made.set("")
+                        free_throws_made.set("")
+                        frame_free_throw.grid_forget()
+                        frame_submit.grid_forget()
+                        for f in (frame_free_throw, frame_submit):
+                            for w in f.winfo_children():
+                                w.destroy()
+
+                # ------------------------------
+                # Step 1: Opponent Selection (Row 0)
+                # ------------------------------
+                frame_opp = ttk.Frame(self.stat_detail_frame)
+                frame_opp.grid(row=row_opp, column=0, pady=5)
+                ttk.Label(frame_opp, text="Select the opposing player who was fouled:").pack(padx=5, pady=5)
+                frame_opp_btn = ttk.Frame(frame_opp)
+                frame_opp_btn.pack(padx=5, pady=5)
+                selected_opp_btn = [None]
+                shooter_team = player.get("TeamID")
+                game_rec = next((g for g in self.test_data.db["Games"] if g["GameID"] == self.selected_game_id), {})
+                home_team = game_rec.get("HomeTeamID")
+                away_team = game_rec.get("AwayTeamID")
+                opposing_team = away_team if shooter_team == home_team else home_team
+                opponents = [p for p in self.test_data.db["Players"]
+                             if p["PlayerID"] in self.currentLineup and p.get("TeamID") == opposing_team][:5]
+                for col, opp in enumerate(opponents):
+                    img = self.generate_jersey_image(opp["Jersey_Number"])
+                    bg = "lightblue" if opp.get("TeamID") == home_team else "lightpink"
+                    btn = tk.Button(frame_opp_btn, image=img, relief="raised", borderwidth=2, bg=bg)
+                    btn.image = img
+                    btn.config(command=lambda pid=opp["PlayerID"], b=btn: select_opp(pid, b))
+                    btn.grid(row=0, column=col, padx=5, pady=2)
+
+                def select_opp(pid, btn):
+                    if selected_opp_btn[0] is not None and selected_opp_btn[0].winfo_exists():
+                        selected_opp_btn[0].config(relief="raised", padx=5)
+                    fouled_player.set(pid)
+                    selected_opp_btn[0] = btn
+                    btn.config(relief="sunken", padx=15)
+                    # Reset lower sections when opponent changes.
+                    shooting_foul.set("")
+                    shot_type.set("")
+                    shot_made.set("")
+                    free_throw_made.set("")
+                    free_throws_made.set("")
+                    frame_shooting.grid_forget()
+                    frame_shot_type.grid_forget()
+                    frame_shot_made.grid_forget()
+                    frame_free_throw.grid_forget()
+                    frame_submit.grid_forget()
+                    update_shooting_foul()
+
+                # ------------------------------
+                # Step 2: Shooting Foul Question (Row 1)
+                # ------------------------------
+                frame_shooting = ttk.Frame(self.stat_detail_frame)
+
+                def update_shooting_foul():
+                    for widget in frame_shooting.winfo_children():
+                        widget.destroy()
+                    ttk.Label(frame_shooting, text="Was it a shooting foul?").pack(padx=5, pady=5)
+                    rb = ttk.Frame(frame_shooting)
+                    rb.pack(padx=5, pady=5)
+                    ttk.Radiobutton(rb, text="Yes", variable=shooting_foul, value="yes",
+                                    command=lambda: [reset_from(2), update_shot_type()]).pack(side="left", padx=10)
+                    ttk.Radiobutton(rb, text="No", variable=shooting_foul, value="no",
+                                    command=lambda: [reset_from(1), update_submit()]).pack(side="left", padx=10)
+                    frame_shooting.grid(row=row_shooting, column=0, pady=5)
+                    update_submit()
+
+                # ------------------------------
+                # Step 3: Shot Type Question (if shooting foul) (Row 2)
+                # ------------------------------
+                frame_shot_type = ttk.Frame(self.stat_detail_frame)
+
+                def update_shot_type():
+                    for widget in frame_shot_type.winfo_children():
+                        widget.destroy()
+                    if shooting_foul.get() == "yes":
+                        ttk.Label(frame_shot_type, text="Was it a 2 or 3 point shot?").pack(padx=5, pady=5)
+                        rb = ttk.Frame(frame_shot_type)
+                        rb.pack(padx=5, pady=5)
+                        ttk.Radiobutton(rb, text="2 Pointer", variable=shot_type, value="2",
+                                        command=lambda: [reset_from(3), update_shot_made()]).pack(side="left", padx=10)
+                        ttk.Radiobutton(rb, text="3 Pointer", variable=shot_type, value="3",
+                                        command=lambda: [reset_from(3), update_shot_made()]).pack(side="left", padx=10)
+                        frame_shot_type.grid(row=row_shot_type, column=0, pady=5)
+                    else:
+                        frame_shot_type.grid_forget()
+                    update_submit()
+
+                # ------------------------------
+                # Step 4: Shot Made Question (if shooting foul) (Row 3)
+                # ------------------------------
+                frame_shot_made = ttk.Frame(self.stat_detail_frame)
+
+                def update_shot_made():
+                    for widget in frame_shot_made.winfo_children():
+                        widget.destroy()
+                    if shooting_foul.get() == "yes" and shot_type.get() in ["2", "3"]:
+                        ttk.Label(frame_shot_made, text="Did they make the shot?").pack(padx=5, pady=5)
+                        rb = ttk.Frame(frame_shot_made)
+                        rb.pack(padx=5, pady=5)
+                        ttk.Radiobutton(rb, text="Made", variable=shot_made, value="made",
+                                        command=update_free_throw).pack(side="left", padx=10)
+                        ttk.Radiobutton(rb, text="Missed", variable=shot_made, value="missed",
+                                        command=update_free_throw).pack(side="left", padx=10)
+                        frame_shot_made.grid(row=row_shot_made, column=0, pady=5)
+                    else:
+                        frame_shot_made.grid_forget()
+                    update_submit()
+
+                # ------------------------------
+                # Step 5: Free Throw Question (if shooting foul) (Row 4)
+                # ------------------------------
+                frame_free_throw = ttk.Frame(self.stat_detail_frame)
+
+                def update_free_throw():
+                    for widget in frame_free_throw.winfo_children():
+                        widget.destroy()
+                    if shooting_foul.get() == "yes" and shot_type.get() in ["2", "3"] and shot_made.get() in ["made",
+                                                                                                              "missed"]:
+                        if shot_made.get() == "made":
+                            ttk.Label(frame_free_throw, text="Did they make their 1 free throw?").pack(padx=5, pady=5)
+                            rb = ttk.Frame(frame_free_throw)
+                            rb.pack(padx=5, pady=5)
+                            ttk.Radiobutton(rb, text="Made", variable=free_throw_made, value="made",
+                                            command=update_submit).pack(side="left", padx=10)
+                            ttk.Radiobutton(rb, text="Missed", variable=free_throw_made, value="missed",
+                                            command=update_submit).pack(side="left", padx=10)
+                        elif shot_made.get() == "missed":
+                            ttk.Label(frame_free_throw, text="How many free throws did they make?").pack(padx=5, pady=5)
+                            rb = ttk.Frame(frame_free_throw)
+                            rb.pack(padx=5, pady=5)
+                            if shot_type.get() == "2":
+                                for val in ["0", "1", "2"]:
+                                    ttk.Radiobutton(rb, text=val, variable=free_throws_made, value=val,
+                                                    command=update_submit).pack(side="left", padx=10)
+                            elif shot_type.get() == "3":
+                                for val in ["0", "1", "2", "3"]:
+                                    ttk.Radiobutton(rb, text=val, variable=free_throws_made, value=val,
+                                                    command=update_submit).pack(side="left", padx=10)
+                        frame_free_throw.grid(row=row_free_throw, column=0, pady=5)
+                    else:
+                        frame_free_throw.grid_forget()
+                    update_submit()
+
+                # ------------------------------
+                # Step 6: Submit Button
+                # ------------------------------
+                frame_submit = ttk.Frame(self.stat_detail_frame)
+
+                def update_submit():
+                    for widget in frame_submit.winfo_children():
+                        widget.destroy()
+                    # Conditions: Opponent selected and shooting foul answered.
+                    if fouled_player.get() != 0 and shooting_foul.get() in ["yes", "no"]:
+                        if shooting_foul.get() == "yes":
+                            if shot_type.get() in ["2", "3"] and shot_made.get() in ["made", "missed"]:
+                                if shot_made.get() == "made" and free_throw_made.get() in ["made", "missed"]:
+                                    frame_submit.grid(row=row_submit_yes, column=0, pady=5)
+                                    ttk.Button(frame_submit, text="Submit", command=submit_foul).grid(row=0, column=0,
+                                                                                                      padx=5, pady=5)
+                                elif shot_made.get() == "missed" and free_throws_made.get() in ["0", "1", "2", "3"]:
+                                    frame_submit.grid(row=row_submit_yes, column=0, pady=5)
+                                    ttk.Button(frame_submit, text="Submit", command=submit_foul).grid(row=0, column=0,
+                                                                                                      padx=5, pady=5)
+                        elif shooting_foul.get() == "no":
+                            frame_submit.grid(row=row_shooting + 1, column=0, pady=5)
+                            ttk.Button(frame_submit, text="Submit", command=submit_foul).grid(row=0, column=0, padx=5,
+                                                                                              pady=5)
+
+                def submit_foul():
+                    game_id = self.selected_game_id
+                    self.update_player_stats(game_id, player["PlayerID"], "foul")
+                    if fouled_player.get() != 0:
+                        self.update_player_stats(game_id, fouled_player.get(), "fouled")
+                    if shooting_foul.get() == "yes":
+                        if shot_made.get() == "made":
+                            if free_throw_made.get() == "made":
+                                self.update_player_stats(game_id, fouled_player.get(), "ft_make")
+                            elif free_throw_made.get() == "missed":
+                                self.update_player_stats(game_id, fouled_player.get(), "ft_miss")
+                        elif shot_made.get() == "missed":
+                            made_ft = int(free_throws_made.get())
+                            self.update_player_stats(game_id, fouled_player.get(), f"ft_make_{made_ft}")
+                    for widget in frame_submit.winfo_children():
+                        widget.destroy()
+                    ttk.Label(frame_submit, text="Foul recorded.").grid(row=0, column=0, padx=5, pady=5)
+                    update_submit()
+
+                # Start the flow by printing the shooting foul question.
+                update_shooting_foul()
+
             case "Reb":
                 self.stat_detail_frame.config(text=f"Rebound for {player['Last_Name']}")
-                ttk.Label(self.stat_detail_frame, text="Rebound form placeholder").pack(padx=5, pady=5)
+                for widget in self.stat_detail_frame.winfo_children():
+                    widget.destroy()
+                self.stat_detail_frame.grid_columnconfigure(0, weight=1)
+
+                prompt_frame = ttk.Frame(self.stat_detail_frame)
+                prompt_frame.grid(row=0, column=0, pady=5)
+                ttk.Label(prompt_frame, text="Confirm rebound:").pack(padx=5, pady=5)
+
+                confirm_frame = ttk.Frame(self.stat_detail_frame)
+                confirm_frame.grid(row=1, column=0, pady=5)
+                ttk.Button(confirm_frame, text="Record Rebound",
+                           command=lambda: record_rebound(player)).pack(padx=5, pady=5)
+
+                def record_rebound(p):
+                    game_id = self.selected_game_id
+                    self.update_player_stats(game_id, p["PlayerID"], "rebound")
+                    for widget in self.stat_detail_frame.winfo_children():
+                        widget.destroy()
+                    ttk.Label(self.stat_detail_frame, text="Rebound recorded.").pack(padx=5, pady=5)
+
             case "FT":
                 self.stat_detail_frame.config(text=f"Free Throw for {player['Last_Name']}")
-                ttk.Label(self.stat_detail_frame, text="Free throw form placeholder").pack(padx=5, pady=5)
+                for widget in self.stat_detail_frame.winfo_children():
+                    widget.destroy()
+                self.stat_detail_frame.grid_columnconfigure(0, weight=1)
+
+                # Define functions first
+                def update_ft_submit():
+                    for widget in ft_submit_frame.winfo_children():
+                        widget.destroy()
+                    if ft_choice.get() in ["made", "missed"]:
+                        ttk.Button(ft_submit_frame, text="Record Free Throw",
+                                   command=lambda: record_free_throw(player, ft_choice.get())).pack(padx=5, pady=5)
+
+                def record_free_throw(p, result):
+                    game_id = self.selected_game_id
+                    if result == "made":
+                        self.update_player_stats(game_id, p["PlayerID"], "ft_make")
+                    else:
+                        self.update_player_stats(game_id, p["PlayerID"], "ft_miss")
+                    for widget in self.stat_detail_frame.winfo_children():
+                        widget.destroy()
+                    ttk.Label(self.stat_detail_frame, text="Free throw recorded.").pack(padx=5, pady=5)
+
+                # Now build the UI.
+                prompt_frame = ttk.Frame(self.stat_detail_frame)
+                prompt_frame.grid(row=0, column=0, pady=5)
+                ttk.Label(prompt_frame, text="Did you make the free throw?").pack(padx=5, pady=5)
+
+                ft_choice = tk.StringVar(value="")
+                options_frame = ttk.Frame(self.stat_detail_frame)
+                options_frame.grid(row=1, column=0, pady=5)
+                ttk.Radiobutton(options_frame, text="Made", variable=ft_choice, value="made",
+                                command=update_ft_submit).pack(side="left", padx=10)
+                ttk.Radiobutton(options_frame, text="Missed", variable=ft_choice, value="missed",
+                                command=update_ft_submit).pack(side="left", padx=10)
+
+                ft_submit_frame = ttk.Frame(self.stat_detail_frame)
+                ft_submit_frame.grid(row=2, column=0, pady=5)
+
             case "jersey":
                 self.stat_detail_frame.config(text=f"Substitution for {player['Last_Name']}")
                 for widget in self.stat_detail_frame.winfo_children():
