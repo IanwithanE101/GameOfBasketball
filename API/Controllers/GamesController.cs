@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.DTOs;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace WebApplication1.Controllers;
 
@@ -22,6 +23,7 @@ public class GamesController : ControllerBase
 
     // GET: api/Games
     [HttpGet]
+    [SwaggerOperation(Summary = "Get All Games", Description = "Retrieves a list of all Games from the database.")]
     public async Task<ActionResult<IEnumerable<GameDTO>>> GetGames()
     {
         try
@@ -47,6 +49,7 @@ public class GamesController : ControllerBase
 
     // GET: api/Games/5
     [HttpGet("{id}", Name = "GetGame")]
+    [SwaggerOperation(Summary = "Get a Game based on ID", Description = "Retrieves a Game based on ID from the database.")]
     public async Task<ActionResult<GameDTO>> GetGame(int id)
     {
         try
@@ -77,6 +80,7 @@ public class GamesController : ControllerBase
 
     // POST: api/Games
     [HttpPost]
+    [SwaggerOperation(Summary = "Create A Game", Description = "Creates a Game and Adds it to the Database.")]
     public async Task<ActionResult<Game>> PostGame(GameCreateDTO gameDto)
     {
         //check if HomeTeam and AwayTeam exists
@@ -113,6 +117,7 @@ public class GamesController : ControllerBase
 
     // DELETE: api/Games/5
     [HttpDelete("{id}")]
+    [SwaggerOperation(Summary = "Deletes a Game based on ID", Description = "Deletes a game from the database based on Game_ID.")]
     public async Task<IActionResult> DeleteGame(int id)
     {
         var game = await _context.Games.FindAsync(id);

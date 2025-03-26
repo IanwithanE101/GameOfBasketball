@@ -6,6 +6,7 @@ using WebApplication1.DTOs;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Swashbuckle.AspNetCore.Annotations;
 
 
 [ApiController]
@@ -21,6 +22,7 @@ public class StatsController : ControllerBase
 
     // GET: api/Stats
     [HttpGet]
+    [SwaggerOperation(Summary = "Get All Stats", Description = "Retrieves a list of all Stats from the database.")]
     public async Task<ActionResult<IEnumerable<StatDTO>>> GetStats()
     {
         try
@@ -58,6 +60,7 @@ public class StatsController : ControllerBase
 
     // GET: api/Stats/5
     [HttpGet("{id}", Name = "GetStat")]
+    [SwaggerOperation(Summary = "Get a Stat", Description = "Retrieves a Stat from the Database.")]
     public async Task<ActionResult<StatDTO>> GetStat(int id)
     {
         try
@@ -100,6 +103,7 @@ public class StatsController : ControllerBase
 
     // GET: api/Stats/Total/Player
     [HttpGet("Player/{playerId}")]
+    [SwaggerOperation(Summary = "Get Stats of Player", Description = "Retrieves stats of player from database. All stats are added together from entire database.")]
     public async Task<ActionResult<StatDTO>> GetTotalStatsForPlayer(int playerId)
     {
         try
@@ -142,6 +146,7 @@ public class StatsController : ControllerBase
 
     // POST: api/Stats
     [HttpPost]
+    [SwaggerOperation(Summary = "Add a Stat", Description = "Posts a stat to the database. If that game and player already has a stat, adds stat to already existing stat.")]
     public async Task<ActionResult<Stat>> PostStat(StatCreateDTO statDto)
     {
         // Check if Player_ID and Game_ID exist
@@ -251,6 +256,7 @@ public class StatsController : ControllerBase
 
     // DELETE: api/Stats/5
     [HttpDelete("{id}")]
+    [SwaggerOperation(Summary = "Delete stat based on ID", Description = "Removes stat based on Stat ID.")]
     public async Task<IActionResult> DeleteStat(int id)
     {
         var stat = await _context.Stats.FindAsync(id);
@@ -266,6 +272,7 @@ public class StatsController : ControllerBase
     }
 
     [HttpGet("Game/{gameId}")]
+    [SwaggerOperation(Summary = "Get stats for a Game", Description = "Retrieves a list of all player's stats from a specific game from the database.")]
     public async Task<ActionResult<IEnumerable<StatDTO>>> GetStatsForGame(int gameId)
     {
         try
@@ -308,6 +315,7 @@ public class StatsController : ControllerBase
     }
     
     [HttpGet("GameScore/{gameId}")]
+    [SwaggerOperation(Summary = "Get The score of a Game", Description = "Retrieves the score of a specific game based on Game_ID.")]
     public async Task<ActionResult<object>> GetGameScore(int gameId)
     {
         try
@@ -367,6 +375,7 @@ public class StatsController : ControllerBase
     }
 
     [HttpGet("Team/{teamId}/Game/{gameId}")]
+    [SwaggerOperation(Summary = "Get Stats for Game based on Team", Description = "Retrieves a list of all players stats Based on Team and Game.")]
     public async Task<ActionResult<IEnumerable<StatDTO>>> GetTeamStatsForGame(int teamId, int gameId)
     {
         try
@@ -432,6 +441,7 @@ public class StatsController : ControllerBase
 
 
     [HttpGet("Team/{teamId}/AllTime")]
+    [SwaggerOperation(Summary = "Get Total Team Stats", Description = "Retrieves a list of all players stats on a team. Totals all the stats of those players accross all games")]
     public async Task<ActionResult<IEnumerable<StatDTO>>> GetTeamStatsAllTime(int teamId)
     {
         try

@@ -20,6 +20,7 @@ public class TeamsController : ControllerBase
 
     // GET: api/Teams
     [HttpGet]
+    [SwaggerOperation(Summary = "Get All Teams", Description = "Retrieves a list of all Teams from the database.")]
     public async Task<ActionResult<IEnumerable<Team>>> GetTeams()
     {
         try
@@ -44,6 +45,7 @@ public class TeamsController : ControllerBase
 
     // GET: api/Teams/5
     [HttpGet("{id}", Name = "GetTeamById")]
+    [SwaggerOperation(Summary = "Get Team based by ID", Description = "Retrieves a team from the databased based on ID.")]
     public async Task<ActionResult<Team>> GetTeam(int id)
     {
         var team = await _context.Teams.FindAsync(id);
@@ -57,6 +59,7 @@ public class TeamsController : ControllerBase
     }
     // GET: api/Teams/ByName/{teamName}
     [HttpGet("ByName/{teamName}")]
+    [SwaggerOperation(Summary = "Get Teams by Name", Description = "Retrieves a Team based on Team Name.")]
     public async Task<ActionResult<IEnumerable<TeamDTO>>> GetTeamsByName(string teamName)
     {
         try
@@ -87,6 +90,7 @@ public class TeamsController : ControllerBase
 
     // POST: api/Teams
     [HttpPost]
+    [SwaggerOperation(Summary = "Add a Team", Description = "Adds a Team to the database.")]
     public async Task<ActionResult<Team>> PostTeam(TeamCreateDTO teamDto)
     {
         var team = new Team
@@ -103,6 +107,7 @@ public class TeamsController : ControllerBase
 
     // DELETE: api/Teams/5
     [HttpDelete("{id}")]
+    [SwaggerOperation(Summary = "Delete a Team", Description = "Deletes a team based on Team_ID.")]
     public async Task<IActionResult> DeleteTeam(int id)
     {
         var team = await _context.Teams.FindAsync(id);

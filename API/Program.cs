@@ -17,6 +17,7 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "A project for Dr. Bilitski's Software engineering class to track, score, and keep track of stats and basketball games"
     });
+    options.EnableAnnotations();
 });
 
 // Register DbContext

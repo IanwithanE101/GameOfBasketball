@@ -4,6 +4,7 @@ using WebApplication1.Database;
 using WebApplication1.Models;
 using System.Threading.Tasks;
 using WebApplication1.DTOs;
+using Swashbuckle.AspNetCore.Annotations;
 
 
 [ApiController]
@@ -18,6 +19,7 @@ public class PlayersController : ControllerBase
     }
     // GET: api/Teams
     [HttpGet]
+    [SwaggerOperation(Summary = "Get All Players", Description = "Retrieves a list of all Players from the database.")]
     public async Task<ActionResult<IEnumerable<Team>>> GetPlayers()
     {
         try
@@ -44,6 +46,7 @@ public class PlayersController : ControllerBase
     }
     // POST: api/Players
     [HttpPost]
+    [SwaggerOperation(Summary = "Add a Player", Description = "Adds a Player to the Database.")]
     public async Task<ActionResult<Player>> PostPlayer(PlayerCreateDTO playerDto)
     {
         // Check if the team exists
@@ -78,6 +81,7 @@ public class PlayersController : ControllerBase
 
     // GET: api/Players/5
     [HttpGet("{id}", Name = "GetPlayerById")]
+    [SwaggerOperation(Summary = "Get a Player by ID", Description = "Retrieves a player from the Database.")]
     public async Task<ActionResult<PlayerDTO>> GetPlayer(int id)
     {
         var player = await _context.Players
@@ -101,6 +105,7 @@ public class PlayersController : ControllerBase
     }
     // DELETE: api/Players/5
     [HttpDelete("{id}")]
+    [SwaggerOperation(Summary = "Delete a player Based by ID", Description = "Removes Player based on ID.")]
     public async Task<IActionResult> DeletePlayer(int id)
     {
         // Find the player to delete
