@@ -234,7 +234,7 @@ class MainMenu(tk.Tk):
             print("[DEBUG] Scoreboard data:", score_info)
         except Exception as e:
             print(f"[ERROR] Error fetching scoreboard for gameID {game_id}: {e}")
-            score_info = {"HomeTeamScore": 0, "AwayTeamScore": 0}
+            score_info = {"homeTeamScore": 0, "awayTeamScore": 0}
 
         # --- 3. Retrieve all stat records for the game ---
         try:
@@ -372,8 +372,8 @@ class MainMenu(tk.Tk):
         # Extract values.
         game_data = aggregated_details.get("game_data", {})
         scoreboard = aggregated_details.get("scoreboard", {})
-        home_score = scoreboard.get("HomeTeamScore", 0)
-        away_score = scoreboard.get("AwayTeamScore", 0)
+        home_score = scoreboard.get("homeTeamScore", 0)
+        away_score = scoreboard.get("awayTeamScore", 0)
 
         # Print what we're using for the scoreboard.
         print("DEBUG: Game Data:", game_data)
