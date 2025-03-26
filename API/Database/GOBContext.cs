@@ -14,7 +14,11 @@
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Team>().ToTable("Team"); // Explicitly set the table name
+            //Set entities to specific table names
+            modelBuilder.Entity<Team>().ToTable("Team"); 
+            modelBuilder.Entity<Player>().ToTable("Player");
+            modelBuilder.Entity<Stat>().ToTable("Stat");
+            modelBuilder.Entity<Game>().ToTable("Game");
 
             modelBuilder.Entity<Game>()
                 .HasOne(g => g.HomeTeam)

@@ -1,21 +1,23 @@
 using Microsoft.EntityFrameworkCore;
-using WebApplication1.Database; // Make sure this is the correct namespace
-using Microsoft.OpenApi.Models; // Add this using statement
+using WebApplication1.Database;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>  // Use options
+builder.Services.AddSwaggerGen(options => 
 {
-    options.SwaggerDoc("v1", new OpenApiInfo // Add this block
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Your API Title", // Customize
+        Title = "Game Of Basketball API",
         Version = "v1",
-        Description = "API Description" // Customize
+        Description = "A project for Dr. Bilitski's Software engineering class to track, score, and keep track of stats and basketball games"
     });
+    options.EnableAnnotations();
 });
 
 // Register DbContext

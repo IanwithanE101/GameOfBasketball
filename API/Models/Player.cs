@@ -8,7 +8,7 @@
     {
         [Key]
         public int Player_ID { get; set; }
-        public int? Team_ID { get; set; } // Nullable because it can be null
+        public int? Team_ID { get; set; }
         public string First_Name { get; set; }
         public string Last_Name { get; set; }
         public string Position_ID { get; set; }

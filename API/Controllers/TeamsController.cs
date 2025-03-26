@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using WebApplication1.Database; // Replace with your actual namespace
-using WebApplication1.Models; // Replace with your actual namespace
+using WebApplication1.Database;
+using WebApplication1.Models;
 using System.Threading.Tasks;
 using WebApplication1.DTOs;
+using Swashbuckle.AspNetCore.Annotations;
+
 
 [ApiController]
 [Route("[controller]")]
@@ -18,12 +20,13 @@ public class TeamsController : ControllerBase
 
     // GET: api/Teams
     [HttpGet]
+    [SwaggerOperation(Summary = "Get All Teams", Description = "Retrieves a list of all Teams from the database.")]
     public async Task<ActionResult<IEnumerable<Team>>> GetTeams()
     {
         try
         {
             var teams = await _context.Teams
-                .Select(t => new TeamDTO // Project to a simpler DTO
+                .Select(t => new TeamDTO 
                 {
                     Team_ID = t.Team_ID,
                     Team_Name = t.Team_Name,
@@ -41,7 +44,8 @@ public class TeamsController : ControllerBase
     }
 
     // GET: api/Teams/5
-    [HttpGet("{id}", Name = "GetTeamById")] // Named route
+    [HttpGet("{id}", Name = "GetTeamById")]
+    [SwaggerOperation(Summary = "Get Team based by ID", Description = "Retrieves a team from the databased based on ID.")]
     public async Task<ActionResult<Team>> GetTeam(int id)
     {
         var team = await _context.Teams.FindAsync(id);
@@ -55,12 +59,13 @@ public class TeamsController : ControllerBase
     }
     // GET: api/Teams/ByName/{teamName}
     [HttpGet("ByName/{teamName}")]
+    [SwaggerOperation(Summary = "Get Teams by Name", Description = "Retrieves a Team based on Team Name.")]
     public async Task<ActionResult<IEnumerable<TeamDTO>>> GetTeamsByName(string teamName)
     {
         try
         {
             var teams = await _context.Teams
-                .Where(t => t.Team_Name == teamName) // Filter by team name
+                .Where(t => t.Team_Name == teamName)
                 .Select(t => new TeamDTO
                 {
                     Team_ID = t.Team_ID,
@@ -69,7 +74,7 @@ public class TeamsController : ControllerBase
                 })
                 .ToListAsync();
 
-            if (!teams.Any()) // Check if any teams were found
+            if (!teams.Any()) 
             {
                 return NotFound($"No teams found with the name '{teamName}'.");
             }
@@ -85,6 +90,7 @@ public class TeamsController : ControllerBase
 
     // POST: api/Teams
     [HttpPost]
+    [SwaggerOperation(Summary = "Add a Team", Description = "Adds a Team to the database.")]
     public async Task<ActionResult<Team>> PostTeam(TeamCreateDTO teamDto)
     {
         var team = new Team
@@ -96,11 +102,12 @@ public class TeamsController : ControllerBase
         _context.Teams.Add(team);
         await _context.SaveChangesAsync();
 
-        return CreatedAtRoute("GetTeamById", new { id = team.Team_ID }, team); // Using CreatedAtRoute
+        return CreatedAtRoute("GetTeamById", new { id = team.Team_ID }, team);
     }
 
     // DELETE: api/Teams/5
     [HttpDelete("{id}")]
+    [SwaggerOperation(Summary = "Delete a Team", Description = "Deletes a team based on Team_ID.")]
     public async Task<IActionResult> DeleteTeam(int id)
     {
         var team = await _context.Teams.FindAsync(id);
